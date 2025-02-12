@@ -1,5 +1,3 @@
-# preprocessor.py
-
 import re
 
 def expand_range(match):
@@ -15,15 +13,16 @@ def expand_list(match):
 def replace_escaped(match):
     """
     Procesa las secuencias escapadas:
-      - Si se escapan paréntesis o llaves se devuelven tal cual.
-      - Si se escapan operadores (como +, ?, *, etc.), se antepone el marcador § para que
-        no se transformen posteriormente.
+      - Ahora, si se escapan paréntesis o llaves, se antepone el marcador § para que
+        sean tratados como literales y no como símbolos de agrupación.
+      - Si se escapan operadores (como +, ?, *, etc.), se antepone el marcador §.
       - Los escapes especiales \n y \t se convierten en "§n" y "§t".
       - Para cualquier otro carácter, se antepone §.
     """
     escaped_char = match.group(1)
     if escaped_char in ("(", ")", "{", "}"):
-        return escaped_char
+        # Se modificó para que estos caracteres se traten como literales.
+        return "§" + escaped_char
     elif escaped_char in ("+", "?", "*", "|", ".", "^", "$"):
         return "§" + escaped_char
     elif escaped_char == "n":
@@ -52,7 +51,7 @@ def preprocess_expression(expression):
     expression = expression.replace("\n", "§n")
     # 2. Elimina espacios
     expression = expression.replace(" ", "")
-    # 3. Procesa secuencias escapadas
+    # 3. Procesa las secuencias escapadas
     expression = re.sub(r"\\(.)", replace_escaped, expression)
     # 4. Corrige agrupamientos con cuantificador dentro de llaves
     expression = re.sub(r"\{([^}]+)([+?*])\}", r"{\1}\2", expression)

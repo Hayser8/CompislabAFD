@@ -1,12 +1,11 @@
 from symbol import Symbol  
-
+# Nodos del AST
 class Node:
     pass
 
 class Literal(Node):
     def __init__(self, value):
         self.value = value
-
     def __repr__(self):
         return self.value
 
@@ -14,7 +13,6 @@ class Concat(Node):
     def __init__(self, left, right):
         self.left = left
         self.right = right
-
     def __repr__(self):
         return f"Concat({self.left},{self.right})"
 
@@ -22,35 +20,30 @@ class Alternation(Node):
     def __init__(self, left, right):
         self.left = left
         self.right = right
-
     def __repr__(self):
         return f"Alt({self.left},{self.right})"
 
 class Star(Node):
     def __init__(self, child):
         self.child = child
-
     def __repr__(self):
         return f"Star({self.child})"
 
 class Epsilon(Node):
     def __init__(self):
         self.value = "ε"
-
     def __repr__(self):
         return self.value
 
 class Plus(Node):
     def __init__(self, child):
         self.child = child
-
     def __repr__(self):
         return f"Plus({self.child})"
 
 class Group(Node):
     def __init__(self, child):
         self.child = child
-
     def __repr__(self):
         return f"Group({self.child})"
 
@@ -81,7 +74,7 @@ class Parser:
     
     def parse_term(self):
         nodes = []
-        # Se termina la concatenación al encontrar ')' o '}' o el operador '|'
+        # Termina la concatenación al encontrar ')' o '}' o el operador '|'
         while self.current() is not None and self.current() not in [')', '}', '|']:
             nodes.append(self.parse_factor())
         if not nodes:
@@ -183,7 +176,7 @@ def to_postfix(node):
                 s = to_postfix_no_concat(t.child)
             else:
                 s = to_postfix(t)
-            # Si no es el último token y el token no es Plus (que ya incluye el operador), 
+            # Si no es el último token y el token no es Plus (que ya incluye el operador),
             # se elimina un operador de concatenación final si está presente.
             if i < len(tokens) - 1:
                 if not isinstance(t, Plus) and s.endswith(" ."):

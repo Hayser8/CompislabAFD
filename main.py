@@ -10,9 +10,9 @@ if __name__ == "__main__":
         "b+",
         "c?",
         "x+ y?",
-        "a\\+b",      
-        "a\\?b",      
-        "a\\(b\\)",  
+        "a\\+b",      # Se desea conservar el literal "+"
+        "a\\?b",      # Se desea conservar el literal "?"
+        "a\\(b\\)",   # Se desean conservar los literales "(" y ")"
         "if\\([ae] +\\)\\{[ei] +\\}(\\n(else\\{[jl] +\\}))?",
         "[ae03]+@[ae03]+.(com|net|org)(.(gt|cr|co))?",
         "{abc}+",
