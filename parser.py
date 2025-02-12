@@ -1,4 +1,5 @@
-from symbol import Symbol  
+from symbol import Symbol
+
 # Nodos del AST
 class Node:
     pass
@@ -47,7 +48,6 @@ class Group(Node):
     def __repr__(self):
         return f"Group({self.child})"
 
-# Clase Parser
 class Parser:
     def __init__(self, input_str):
         self.input = input_str
@@ -73,15 +73,22 @@ class Parser:
         return node
     
     def parse_term(self):
-        nodes = []
-        # Termina la concatenación al encontrar ')' o '}' o el operador '|'
-        while self.current() is not None and self.current() not in [')', '}', '|']:
-            nodes.append(self.parse_factor())
-        if not nodes:
-            return Epsilon()
-        node = nodes[0]
-        for n in nodes[1:]:
-            node = Concat(node, n)
+        # Parsea el primer factor.
+        node = self.parse_factor()
+        # Mientras haya más caracteres y no se alcance un delimitador de cierre:
+        while self.current() is not None and self.current() not in {')', '}', '|'}:
+            if self.current() == '·':
+                # Se encontró el operador de concatenación explícito.
+                self.consume()  # consume '·'
+                if self.current() is None or not Parser.is_valid_factor_start(self.current()):
+                    raise ValueError("Expected factor after concatenation operator")
+                right = self.parse_factor()
+                node = Concat(node, right)
+            elif Parser.is_valid_factor_start(self.current()):
+                right = self.parse_factor()
+                node = Concat(node, right)
+            else:
+                break
         return node
     
     def parse_factor(self):
@@ -100,12 +107,10 @@ class Parser:
         ch = self.current()
         if ch is None:
             raise ValueError("Unexpected end of input in parse_base")
-        # Si se encuentra el marcador de escape, se consume y se trata el siguiente carácter como literal.
         if ch == '§':
-            self.consume()  # consume el marcador
+            self.consume()  # consume el marcador de escape
             next_ch = self.consume()
-            return Literal(next_ch)
-        # Agrupamiento en paréntesis: se consume y se envuelve en un nodo Group.
+            return Literal("§" + next_ch)
         if ch == '(':
             self.consume()  # consume '('
             node = self.parse_expression()
@@ -113,7 +118,6 @@ class Parser:
                 raise ValueError("Expected ')' at position " + str(self.pos))
             self.consume()  # consume ')'
             return Group(node)
-        # Agrupamiento en llaves: se trata de forma similar.
         if ch == '{':
             self.consume()  # consume '{'
             node = self.parse_expression()
@@ -121,8 +125,14 @@ class Parser:
                 raise ValueError("Expected '}' at position " + str(self.pos))
             self.consume()  # consume '}'
             return Group(node)
-        # Cualquier otro carácter se trata como literal.
+        if ch in {'·', '|', '*', '+', '?'}:
+            raise ValueError(f"Unexpected operator '{ch}' at position {self.pos}")
         return Literal(self.consume())
+
+    @staticmethod
+    def is_valid_factor_start(ch):
+        # Un carácter es válido para iniciar un factor si no es un operador o delimitador de cierre.
+        return ch not in {'*', '+', '?', '|', '·', ')', '}'}
 
 def parse_regex(input_str):
     parser = Parser(input_str)
@@ -131,14 +141,12 @@ def parse_regex(input_str):
         raise ValueError("Extra characters at end of input")
     return ast
 
-# Función auxiliar para aplanar nodos de concatenación
 def flatten_concat(node):
     if isinstance(node, Concat):
         return flatten_concat(node.left) + flatten_concat(node.right)
     else:
         return [node]
 
-# Conversión a postfix sin insertar operadores de concatenación internos.
 def to_postfix_no_concat(node):
     if isinstance(node, Literal):
         return node.value
@@ -149,42 +157,30 @@ def to_postfix_no_concat(node):
     elif isinstance(node, Alternation):
         return to_postfix_no_concat(node.left) + " " + to_postfix_no_concat(node.right) + " |"
     elif isinstance(node, Concat):
-        return " ".join(to_postfix_no_concat(n) for n in flatten_concat(node))
+        return " ".join(to_postfix_no_concat(n) for n in flatten_concat(node)) + " ·"
     elif isinstance(node, Plus):
         base = to_postfix_no_concat(node.child)
         star = to_postfix_no_concat(Star(node.child))
-        result = base + " " + star + " ."
-        if isinstance(node.child, Group):
-            if len(base.split()) > 1:
-                result += " ."
+        result = base + " " + star + " ·"
         return result
     elif isinstance(node, Group):
         return to_postfix_no_concat(node.child)
     else:
         raise ValueError("Unknown node type in no_concat conversion")
 
-# Conversión principal a postfix.
 def to_postfix(node):
     if isinstance(node, Group):
         return to_postfix_no_concat(node.child)
     elif isinstance(node, Concat):
         tokens = flatten_concat(node)
         tokens_post = []
-        for i, t in enumerate(tokens):
-            # Si el token es un Group, usamos la conversión sin concatenación.
+        for t in tokens:
             if isinstance(t, Group):
                 s = to_postfix_no_concat(t.child)
             else:
                 s = to_postfix(t)
-            # Si no es el último token y el token no es Plus (que ya incluye el operador),
-            # se elimina un operador de concatenación final si está presente.
-            if i < len(tokens) - 1:
-                if not isinstance(t, Plus) and s.endswith(" ."):
-                    s = s[:-2]
             tokens_post.append(s)
-        result = " ".join(tokens_post)
-        if not result.endswith(" ."):
-            result += " ."
+        result = " ".join(tokens_post) + " ·"
         return result
     elif isinstance(node, Alternation):
         return to_postfix(node.left) + " " + to_postfix(node.right) + " |"
@@ -193,10 +189,7 @@ def to_postfix(node):
     elif isinstance(node, Plus):
         base = to_postfix(node.child)
         star = to_postfix(Star(node.child))
-        result = base + " " + star + " ."
-        if isinstance(node.child, Group):
-            if len(to_postfix_no_concat(node.child.child).split()) > 1:
-                result += " ."
+        result = base + " " + star + " ·"
         return result
     elif isinstance(node, Literal):
         return node.value

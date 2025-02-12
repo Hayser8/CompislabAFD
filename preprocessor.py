@@ -13,7 +13,7 @@ def expand_list(match):
 def replace_escaped(match):
     """
     Procesa las secuencias escapadas:
-      - Ahora, si se escapan paréntesis o llaves, se antepone el marcador § para que
+      - Si se escapan paréntesis o llaves, se antepone el marcador § para que
         sean tratados como literales y no como símbolos de agrupación.
       - Si se escapan operadores (como +, ?, *, etc.), se antepone el marcador §.
       - Los escapes especiales \n y \t se convierten en "§n" y "§t".
@@ -21,7 +21,6 @@ def replace_escaped(match):
     """
     escaped_char = match.group(1)
     if escaped_char in ("(", ")", "{", "}"):
-        # Se modificó para que estos caracteres se traten como literales.
         return "§" + escaped_char
     elif escaped_char in ("+", "?", "*", "|", ".", "^", "$"):
         return "§" + escaped_char
@@ -42,9 +41,8 @@ def preprocess_expression(expression):
       5. Expande clases de caracteres:
             - Rango: [0-3]  → (0|1|2|3)
             - Lista: [ae03] → (a|e|0|3)
-      6. Transforma los operadores no escapados aplicados a un token:
-            token+ → (token.token*)
-            token? → (token|ε)
+      6. Transforma los cuantificadores + y ? aplicados a un token no escapado,
+         permitiendo un nivel de agrupamiento anidado.
          (El lookbehind (?<!§) evita transformar aquellos precedidos por §).
     """
     # 1. Reemplaza saltos de línea reales por "§n"
@@ -58,11 +56,10 @@ def preprocess_expression(expression):
     # 5. Expande rangos y listas
     expression = re.sub(r"\[([a-zA-Z0-9])\-([a-zA-Z0-9])\]", expand_range, expression)
     expression = re.sub(r"\[([a-zA-Z0-9]+)\]", expand_list, expression)
-    # 6. Transforma cuantificadores + y ? aplicados a un token no escapado,
-    # permitiendo un nivel de agrupamiento anidado.
+    # 6. Transforma cuantificadores + y ? aplicados a un token no escapado.
     expression = re.sub(
         r"(?<!§)((?:\((?:[^()]+|\([^()]*\))*\)|\{(?:[^{}]+|\{[^{}]*\})*\}|[a-zA-Z0-9]))\+",
-        lambda m: "(" + m.group(1) + "." + m.group(1) + "*)",
+        lambda m: "(" + m.group(1) + "·" + m.group(1) + "*)",
         expression
     )
     expression = re.sub(

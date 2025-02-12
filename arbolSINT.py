@@ -1,122 +1,130 @@
-from graphviz import Digraph
-import re
+from symbol import Symbol
 
 class SyntaxNode:
     """
-    Nodo del Árbol Sintáctico.
+    Nodo del árbol sintáctico para la construcción del DFA.
+    Cada nodo tiene un símbolo; los nodos hoja (operandos) reciben una posición única.
     """
     def __init__(self, symbol, left=None, right=None):
-        self.symbol = symbol  
-        self.left = left      
-        self.right = right    
+        self.symbol = symbol      
+        self.left = left
+        self.right = right
         self.nullable = False 
         self.firstpos = set() 
         self.lastpos = set()  
+        self.position = None  # Solo para hojas (operandos)
+
+    def __repr__(self):
+        if self.position is not None:
+            return f"({self.symbol}, pos={self.position})"
+        else:
+            return f"({self.symbol})"
 
 class SyntaxTree:
     """
-    Árbol Sintáctico para Expresiones Regulares.
+    Construye el árbol sintáctico a partir de una lista (postfix) de objetos Symbol.
+    Se agrega un marcador de fin (#) mediante la concatenación al final.
+    Luego se calculan nullable, firstpos, lastpos y followpos.
     """
-    def __init__(self, postfix_expr):
-        self.postfix_expr = postfix_expr  
-        self.root = self.build_tree()     
+    def __init__(self, postfix_tokens):
+        # Se agrega el símbolo de fin de cadena (#) al final, concatenándolo con el operador de concatenación "·"
+        self.postfix_tokens = postfix_tokens + [Symbol('#', 'operand'), Symbol('·', 'operator')]
+        print("Postfix tokens for SyntaxTree:", self.postfix_tokens)
+        self.root = self.build_tree()
+        print("Syntax Tree Root:", self.root)
+        self.followpos = {}
+        self.assign_positions()
         self.compute_nullable_first_last()
-        self.compute_followpos()  
+        self.compute_followpos()
 
     def build_tree(self):
-        """Construye el árbol sintáctico a partir de la notación postfix."""
         stack = []
-        
-        for symbol in self.postfix_expr:
-            if symbol.type == "operand":
-                stack.append(SyntaxNode(symbol))
-            elif symbol.type == "operator":
-                if symbol.name in {'*', '?', '+'}: 
-                    node = SyntaxNode(symbol, left=stack.pop())
-                else:  
+        for token in self.postfix_tokens:
+            if token.type == "operand":
+                node = SyntaxNode(token)
+                stack.append(node)
+            elif token.type == "operator":
+                if token.name in {'*', '?', '+'}:
+                    if not stack:
+                        raise ValueError("pop from empty list during unary operator processing")
+                    child = stack.pop()
+                    node = SyntaxNode(token, left=child)
+                else:  # operadores binarios: concatenación ('·') y alternación ('|')
+                    if len(stack) < 2:
+                        raise ValueError("pop from empty list during binary operator processing")
                     right = stack.pop()
                     left = stack.pop()
-                    node = SyntaxNode(symbol, left, right)
+                    node = SyntaxNode(token, left, right)
                 stack.append(node)
-        
-        return stack.pop() if stack else None
-    
-    def compute_nullable_first_last(self):
-        """Calcula nullable, firstpos y lastpos para cada nodo del árbol."""
+        if not stack:
+            raise ValueError("Empty stack after building syntax tree")
+        return stack.pop()
+
+    def assign_positions(self):
+        self._next_pos = 1
         def traverse(node):
-            if not node:
+            if node is None:
                 return
-            
             traverse(node.left)
             traverse(node.right)
-            
+            if node.symbol.type == "operand" and node.symbol.name != 'ε':
+                node.position = self._next_pos
+                self._next_pos += 1
+        traverse(self.root)
+        print("Assigned positions in Syntax Tree.")
+
+    def compute_nullable_first_last(self):
+        def traverse(node):
+            if node is None:
+                return
+            traverse(node.left)
+            traverse(node.right)
             if node.symbol.type == "operand":
-                node.firstpos.add(node)
-                node.lastpos.add(node)
                 node.nullable = False
+                if node.position is not None:
+                    node.firstpos.add(node)
+                    node.lastpos.add(node)
             elif node.symbol.name == '|':
                 node.nullable = node.left.nullable or node.right.nullable
-                node.firstpos = node.left.firstpos | node.right.firstpos
-                node.lastpos = node.left.lastpos | node.right.lastpos
-            elif node.symbol.name == '.':
+                node.firstpos = node.left.firstpos.union(node.right.firstpos)
+                node.lastpos = node.left.lastpos.union(node.right.lastpos)
+            elif node.symbol.name == '·':
                 node.nullable = node.left.nullable and node.right.nullable
-                node.firstpos = node.left.firstpos | node.right.firstpos if node.left.nullable else node.left.firstpos
-                node.lastpos = node.left.lastpos | node.right.lastpos if node.right.nullable else node.left.lastpos
+                if node.left.nullable:
+                    node.firstpos = node.left.firstpos.union(node.right.firstpos)
+                else:
+                    node.firstpos = set(node.left.firstpos)
+                if node.right.nullable:
+                    node.lastpos = node.left.lastpos.union(node.right.lastpos)
+                else:
+                    node.lastpos = set(node.right.lastpos)
             elif node.symbol.name == '*':
                 node.nullable = True
-                node.firstpos = node.left.firstpos
-                node.lastpos = node.left.lastpos
+                node.firstpos = set(node.left.firstpos)
+                node.lastpos = set(node.left.lastpos)
             elif node.symbol.name == '?':
                 node.nullable = True
-                node.firstpos = node.left.firstpos
-                node.lastpos = node.left.lastpos
+                node.firstpos = set(node.left.firstpos)
+                node.lastpos = set(node.left.lastpos)
             elif node.symbol.name == '+':
                 node.nullable = node.left.nullable
-                node.firstpos = node.left.firstpos
-                node.lastpos = node.left.lastpos
-
+                node.firstpos = set(node.left.firstpos)
+                node.lastpos = set(node.left.lastpos)
         traverse(self.root)
-    
-    def compute_followpos(self):
-        """Calcula followpos para cada posición del árbol sintáctico."""
-        followpos = {} 
+        print("Computed nullable, firstpos, and lastpos.")
 
+    def compute_followpos(self):
+        self.followpos = {}
         def traverse(node):
-            if not node:
+            if node is None:
                 return
-            
             traverse(node.left)
             traverse(node.right)
-
-            if node.symbol.name == '.':
-                for last in node.left.lastpos:
-                    followpos.setdefault(last, set()).update(node.right.firstpos)
-            elif node.symbol.name == '*':
-                for last in node.lastpos:
-                    followpos.setdefault(last, set()).update(node.firstpos)
-
+            if node.symbol.name == '·':
+                for n in node.left.lastpos:
+                    self.followpos.setdefault(n, set()).update(node.right.firstpos)
+            if node.symbol.name in {'*', '+'}:
+                for n in node.lastpos:
+                    self.followpos.setdefault(n, set()).update(node.firstpos)
         traverse(self.root)
-        self.followpos = followpos 
-    def visualize(self, filename="syntax_tree"):
-        """Genera la visualización del árbol sintáctico con Graphviz."""
-        filename = re.sub(r'[^a-zA-Z0-9_]', '_', filename)
-        dot = Digraph()
-        self._add_nodes(dot, self.root)
-        dot.render(filename, format="png", cleanup=True)
-    
-    def _add_nodes(self, dot, node, counter=[0]):
-        """Agrega nodos recursivamente a Graphviz."""
-        if node:
-            node_id = str(counter[0])
-            dot.node(node_id, node.symbol.name)
-            counter[0] += 1
-            
-            if node.left:
-                left_id = str(counter[0])
-                self._add_nodes(dot, node.left, counter)
-                dot.edge(node_id, left_id)
-            
-            if node.right:
-                right_id = str(counter[0])
-                self._add_nodes(dot, node.right, counter)
-                dot.edge(node_id, right_id)
+        print("Computed followpos.")
