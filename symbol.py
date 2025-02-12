@@ -8,4 +8,4 @@ class Symbol:
         self.type = symbol_type  
 
     def __repr__(self):
-        return self.name
+        return self.name 
