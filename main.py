@@ -1,23 +1,34 @@
-from shunting_yard import shunting_yard
+from preprocessor import preprocess_expression
+from parser import parse_regex, to_postfix
 
 if __name__ == "__main__":
     test_expressions = [
-        "a|b.c*", 
-        "(a|b)*.c", 
-        "a.b|c*",  
-        "a?(b|c)+",  
-        "a.(b.c)*",  
-        "(a|b.c",  
-        "a|b)#c",  
-        "a||b.c"  
+        "a+",
+        "a?",
+        "[0-3]",
+        "[ae03]",
+        "b+",
+        "c?",
+        "x+ y?",
+        "a\\+b",      
+        "a\\?b",      
+        "a\\(b\\)",  
+        "if\\([ae] +\\)\\{[ei] +\\}(\\n(else\\{[jl] +\\}))?",
+        "[ae03]+@[ae03]+.(com|net|org)(.(gt|cr|co))?",
+        "{abc}+",
+        "a{b}+"
     ]
-
+    
     for expr in test_expressions:
         try:
-            postfix_expr = shunting_yard(expr)  
-            formatted_postfix = " ".join([s.name for s in postfix_expr])  
-            print(f"Infix: {expr}")
-            print(f"Postfix: {formatted_postfix}\n")
-        except ValueError as e:
-            print(f"Infix: {expr}")
-            print(f"❌ {e}\n")
+            preprocessed = preprocess_expression(expr)
+            ast = parse_regex(preprocessed)
+            postfix = to_postfix(ast)
+            print("Infix:       ", expr)
+            print("Preprocessed:", repr(preprocessed))
+            print("Postfix:     ", postfix)
+            print()
+        except Exception as e:
+            print("Infix:       ", expr)
+            print("Error:       ", e)
+            print()
