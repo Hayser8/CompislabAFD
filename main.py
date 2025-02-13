@@ -63,9 +63,17 @@ def simulate_dfa(dfa_obj, input_string, minimized=False):
 
 if __name__ == "__main__":
     test_expressions = [
-        "a+", "a?", "[0-3]", "[ae03]", "b+", "c?", "x+y?", "a\\+b", "a\\?b", "a\\(b\\)",
-        "if\\([ae]+\\)\\{[ei]+\\}(\\\\n(else\\{[jl]+\\}))?", "[ae03]+@[ae03]+\\.(com|net|org)(\\.(gt|cr|co))?",
-        "{abc}+", "a{b}+", "((a|b)|(a|b))*abb((a|b)|(a|b))*"
+        "a+", 
+        "a?", 
+        "[0-3]", "[ae03]", 
+        "b+", "c?", 
+        "x+y?", 
+        "a\\+b", 
+        "a\\?b", "a\\(b\\)",
+        "if\\([ae]+\\)\\{[ei]+\\}(\\\\n(else\\{[jl]+\\}))?", 
+        "[ae03]+@[ae03]+\\.(com|net|org)(\\.(gt|cr|co))?",
+        "{abc}+", "a{b}+", 
+        "((a|b)|(a|b))*abb((a|b)|(a|b))*"
     ]
     
     dfa_results = []
