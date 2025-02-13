@@ -1,6 +1,22 @@
 # DFA.py
 from graphviz import Digraph
 
+def escape_label(label):
+    """
+    Escapa caracteres especiales en la etiqueta para Graphviz.
+    Ahora se escapan:
+      - La barra invertida (\) → \\
+      - Las comillas dobles (") → \"
+      - Las llaves ({ y }) → \{ y \}
+    """
+    return (
+        label
+        .replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("{", "\\{")
+        .replace("}", "\\}")
+    )
+
 class DFA:
     def __init__(self, syntax_tree):
         """
@@ -23,7 +39,7 @@ class DFA:
             if symbol == self.eof_symbol:
                 self.eof_position = pos
                 break
-        # Se construye el DFA a partir de la notación followpos
+        # Se construye el DFA a partir de la información followpos
         self.build_dfa()
 
     def compute_functions(self, node, followpos, pos_to_symbol, pos_counter):
@@ -58,16 +74,9 @@ class DFA:
             left_nullable, left_firstpos, left_lastpos = self.compute_functions(node.left, followpos, pos_to_symbol, pos_counter)
             right_nullable, right_firstpos, right_lastpos = self.compute_functions(node.right, followpos, pos_to_symbol, pos_counter)
             nullable = left_nullable and right_nullable
-            if left_nullable:
-                firstpos = left_firstpos.union(right_firstpos)
-            else:
-                firstpos = left_firstpos
-            if right_nullable:
-                lastpos = left_lastpos.union(right_lastpos)
-            else:
-                lastpos = right_lastpos
-            # Actualiza followpos: para cada posición en lastpos del hijo izquierdo se
-            # añade firstpos del hijo derecho.
+            firstpos = left_firstpos.union(right_firstpos) if left_nullable else left_firstpos
+            lastpos = left_lastpos.union(right_lastpos) if right_nullable else right_lastpos
+            # Actualiza followpos: para cada posición en lastpos del hijo izquierdo se añade firstpos del hijo derecho.
             for pos in left_lastpos:
                 followpos.setdefault(pos, set()).update(right_firstpos)
             return (nullable, firstpos, lastpos)
@@ -141,10 +150,8 @@ class DFA:
         # Crear nodos (los finales se representan con doble círculo)
         for state, sid in state_ids.items():
             label = str(set(state))
-            if state in self.final_states:
-                dot.node(sid, label=label, shape="doublecircle")
-            else:
-                dot.node(sid, label=label)
+            dot.node(sid, label=escape_label(label),
+                     shape="doublecircle" if state in self.final_states else "circle")
         # Nodo de inicio (sin forma) con flecha hacia el estado inicial
         if self.start_state in state_ids:
             dot.node("start", shape="none", label="")
@@ -152,6 +159,6 @@ class DFA:
         # Crear las aristas según las transiciones
         for state, trans in self.transitions.items():
             for sym, next_state in trans.items():
-                dot.edge(state_ids[state], state_ids[next_state], label=sym)
+                dot.edge(state_ids[state], state_ids[next_state], label=escape_label(sym))
         dot.render(filename, format="png", cleanup=True)
         print(f"DFA image generated: {filename}.png")
