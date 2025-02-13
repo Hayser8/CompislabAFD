@@ -42,7 +42,7 @@ if __name__ == "__main__":
         "a\\+b",      # Se desea conservar el literal "+"
         "a\\?b",      # Se desea conservar el literal "?"
         "a\\(b\\)",   # Se desean conservar los literales "(" y ")"
-        "if\\([ae]+\\)\\{[ei]+\\}(\\n(else\\{[jl]+\\}))?",
+        "if\\([ae]+\\)\\{[ei]+\\}(\\\\n(else\\{[jl]+\\}))?",
         "[ae03]+@[ae03]+\\.(com|net|org)(\\.(gt|cr|co))?",
         "{abc}+",
         "a{b}+"
@@ -63,11 +63,6 @@ if __name__ == "__main__":
             # Se tokeniza la notación postfix para construir el árbol sintáctico.
             tokens = tokenize_postfix(postfix)
             syntax_tree = SyntaxTree(tokens)
-            
-            # (Opcional) Visualizar el árbol sintáctico
-            # filename_tree = "syntax_tree_" + sanitize_filename(expr)
-            # syntax_tree.visualize(filename_tree)
-            # print("Syntax tree image generated:", filename_tree + ".png")
             
             # Se construye y visualiza el DFA.
             dfa = DFA(syntax_tree)
