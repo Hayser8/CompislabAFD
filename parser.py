@@ -1,14 +1,12 @@
-# parser.py
 from symbol import Symbol
 
-# Nodos del AST
 class Node:
     pass
 
 class Literal(Node):
     def __init__(self, value, escaped=False):
         self.value = value
-        self.escaped = escaped  # Indica si el literal proviene de un escape
+        self.escaped = escaped  
     def __repr__(self):
         return self.value
 
@@ -69,7 +67,7 @@ class Parser:
     def parse_expression(self):
         node = self.parse_term()
         while self.current() == '|':
-            self.consume()  # consume '|'
+            self.consume()  
             right = self.parse_term()
             node = Alternation(node, right)
         return node
@@ -78,7 +76,7 @@ class Parser:
         node = self.parse_factor()
         while self.current() is not None and self.current() not in {')', '}', '|'}:
             if self.current() == '·':
-                self.consume()  # consume '·'
+                self.consume()  
                 if self.current() is None or not Parser.is_valid_factor_start(self.current()):
                     raise ValueError("Expected factor after concatenation operator")
                 right = self.parse_factor()
@@ -107,23 +105,22 @@ class Parser:
         if ch is None:
             raise ValueError("Unexpected end of input in parse_base")
         if ch == '§':
-            self.consume()  # consume el marcador de escape
+            self.consume()  
             next_ch = self.consume()
-            # Se elimina el icono '§' y se retorna solo el carácter escapado
             return Literal(next_ch, escaped=True)
         if ch == '(':
-            self.consume()  # consume '('
+            self.consume()  
             node = self.parse_expression()
             if self.current() != ')':
                 raise ValueError("Expected ')' at position " + str(self.pos))
-            self.consume()  # consume ')'
+            self.consume()  
             return Group(node)
         if ch == '{':
-            self.consume()  # consume '{'
+            self.consume()  
             node = self.parse_expression()
             if self.current() != '}':
                 raise ValueError("Expected '}' at position " + str(self.pos))
-            self.consume()  # consume '}'
+            self.consume()  
             return Group(node)
         if ch in {'·', '|', '*', '+', '?'}:
             raise ValueError(f"Unexpected operator '{ch}' at position {self.pos}")
@@ -131,7 +128,6 @@ class Parser:
     
     @staticmethod
     def is_valid_factor_start(ch):
-        # Un carácter es válido para iniciar un factor si no es un operador o delimitador de cierre.
         return ch not in {'*', '+', '?', '|', '·', ')', '}'}
 
 def parse_regex(input_str):
@@ -170,7 +166,6 @@ def to_postfix(node):
         operands = flatten_concat(node)
         parts = [to_postfix(op) for op in operands]
         if len(operands) > 1:
-            # Para N operandos se necesitan N-1 operadores de concatenación
             return " ".join(parts) + " " + " ".join("·" for _ in range(len(operands)-1))
         else:
             return parts[0]

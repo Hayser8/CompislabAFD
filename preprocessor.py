@@ -6,7 +6,9 @@ def expand_range(match):
     return f"({expanded})"
 
 def expand_list(match):
-    # Une cada carácter con "|" para formar una alternancia.
+    """
+    Une cada carácter con "|" para formar una alternancia.
+    """
     chars = "|".join(match.group(1))
     return f"({chars})"
 
@@ -45,18 +47,12 @@ def preprocess_expression(expression):
          permitiendo un nivel de agrupamiento anidado.
          (El lookbehind (?<!§) evita transformar aquellos precedidos por §).
     """
-    # 1. Reemplaza saltos de línea reales por "§n"
     expression = expression.replace("\n", "§n")
-    # 2. Elimina espacios
     expression = expression.replace(" ", "")
-    # 3. Procesa las secuencias escapadas
     expression = re.sub(r"\\(.)", replace_escaped, expression)
-    # 4. Corrige agrupamientos con cuantificador dentro de llaves
     expression = re.sub(r"\{([^}]+)([+?*])\}", r"{\1}\2", expression)
-    # 5. Expande rangos y listas
     expression = re.sub(r"\[([a-zA-Z0-9])\-([a-zA-Z0-9])\]", expand_range, expression)
     expression = re.sub(r"\[([a-zA-Z0-9]+)\]", expand_list, expression)
-    # 6. Transforma cuantificadores + y ? aplicados a un token no escapado.
     expression = re.sub(
         r"(?<!§)((?:\((?:[^()]+|\([^()]*\))*\)|\{(?:[^{}]+|\{[^{}]*\})*\}|[a-zA-Z0-9]))\+",
         lambda m: "(" + m.group(1) + "·" + m.group(1) + "*)",

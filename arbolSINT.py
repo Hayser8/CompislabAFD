@@ -1,8 +1,6 @@
-# arbolSINT.py
 from graphviz import Digraph
 from symbol import Symbol
 
-# Caracter especial que marca el fin de la expresión (EOF)
 EOF_SYMBOL = '☒'
 
 class TreeNode:
@@ -24,9 +22,7 @@ class SyntaxTree:
         Al final se concatena el árbol resultante con un nodo EOF.
         """
         self.tokens = tokens
-        # Construir árbol a partir de la notación postfix
         tree = self._build_tree(tokens)
-        # Se concatena el árbol con el símbolo EOF usando un nodo de concatenación.
         eof_node = TreeNode(EOF_SYMBOL)
         self.root = TreeNode('·', tree, eof_node)
 
@@ -40,7 +36,6 @@ class SyntaxTree:
         stack = []
         for token in tokens:
             if token.type == "operand":
-                # Cada literal se convierte en una hoja
                 node = TreeNode(token.name)
                 stack.append(node)
             elif token.type == "operator":
