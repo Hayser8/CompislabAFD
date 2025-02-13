@@ -31,6 +31,40 @@ def tokenize_postfix(postfix_str):
             result.append(Symbol(token, "operand"))
     return result
 
+def simulate_dfa(dfa_obj, input_string, minimized=False):
+    """
+    Simula el DFA dado (original o minimizado) con la cadena de entrada.
+    
+    Se asume que el DFA fue construido sobre la expresión regular
+    concatenada con el símbolo EOF. Por ello, al simular la cadena de entrada
+    (sin agregar el EOF) se verifica que el estado resultante sea final,
+    es decir, que contenga la posición del símbolo EOF.
+    
+    Parámetros:
+      - dfa_obj: objeto DFA o MinimizedDFA.
+      - input_string: cadena de entrada a evaluar.
+      - minimized: si es True, se usa la versión minimizada.
+    
+    Retorna True si la cadena es aceptada, False en caso contrario.
+    """
+    if minimized:
+        transitions = dfa_obj.minimized_transitions
+        current_state = dfa_obj.minimized_start
+        final_states = dfa_obj.minimized_final
+    else:
+        transitions = dfa_obj.transitions
+        current_state = dfa_obj.start_state
+        final_states = dfa_obj.final_states
+
+    # Simular la cadena de entrada sin agregar el símbolo EOF.
+    for ch in input_string:
+        if current_state in transitions and ch in transitions[current_state]:
+            current_state = transitions[current_state][ch]
+        else:
+            return False
+    # Al finalizar, la cadena es aceptada si el estado actual es final.
+    return current_state in final_states
+
 if __name__ == "__main__":
     test_expressions = [
         "a+",
@@ -50,6 +84,9 @@ if __name__ == "__main__":
         "((a|b)|(a|b))*abb((a|b)|(a|b))*"
     ]
     
+    # Almacenar los DFAs generados para cada expresión
+    dfa_results = []  # Cada elemento: (expr, dfa, min_dfa)
+
     for expr in test_expressions:
         try:
             print("--------------------------------------------------")
@@ -77,7 +114,32 @@ if __name__ == "__main__":
             filename_min = "min_dfa_" + sanitize_filename(expr)
             min_dfa.visualize(filename_min)
             print("Minimized DFA image generated:", filename_min + ".png")
+            
+            # Guardar resultados para simulación posterior.
+            dfa_results.append((expr, dfa, min_dfa))
         except Exception as e:
             print("Error processing expression:", expr)
             print(e)
         print()
+    
+    # Si se procesó al menos una expresión, preguntar si se desea simular alguna.
+    if dfa_results:
+        simulate_choice = input("¿Desea simular alguna de las expresiones procesadas? (s/n): ").strip().lower()
+        if simulate_choice == 's':
+            print("\nExpresiones procesadas:")
+            for idx, (expr, _, _) in enumerate(dfa_results):
+                print(f"{idx}: {expr}")
+            try:
+                index = int(input("Ingrese el número de la expresión a simular: "))
+                if index < 0 or index >= len(dfa_results):
+                    raise ValueError("Índice fuera de rango")
+            except Exception as e:
+                print("Índice inválido. Se usará la última expresión procesada.")
+                index = len(dfa_results) - 1
+            input_string = input("Ingrese la cadena a simular: ")
+            expr, dfa, min_dfa = dfa_results[index]
+            accepted_orig = simulate_dfa(dfa, input_string, minimized=False)
+            accepted_min = simulate_dfa(min_dfa, input_string, minimized=True)
+            print("\nResultados de la simulación para la expresión:", expr)
+            print(f"La cadena '{input_string}' es {'válida' if accepted_orig else 'inválida'} según el DFA original.")
+            print(f"La cadena '{input_string}' es {'válida' if accepted_min else 'inválida'} según el DFA minimizado.")

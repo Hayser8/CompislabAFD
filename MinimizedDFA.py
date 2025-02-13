@@ -74,7 +74,7 @@ class MinimizedDFA:
                         new_P.append(Y)
                 P = new_P
         self.P = P  # Particiones finales (cada una es un bloque de estados equivalentes)
-        # Reconstruir el DFA minimizado:
+        # Ahora se reconstruye el DFA minimizado:
         # Cada bloque se convierte en un estado
         self.minimized_transitions = {}
         self.minimized_states = set()
@@ -102,6 +102,9 @@ class MinimizedDFA:
                         if target in block2:
                             self.minimized_transitions[block_fro][c] = frozenset(block2)
                             break
+        # ¡Agregado para solucionar el error!
+        # Copiar el símbolo EOF desde el DFA original para usarlo en la simulación.
+        self.eof_symbol = dfa.eof_symbol
 
     def _get_reachable_states(self):
         """Obtiene el conjunto de estados alcanzables desde el estado inicial."""
@@ -128,15 +131,10 @@ class MinimizedDFA:
         for state in self.minimized_states:
             state_ids[state] = f"M{counter}"
             counter += 1
-        # Crear nodos: para cada estado, usamos un representante para construir la etiqueta.
+        # Crear nodos: para cada estado, formatear la etiqueta mostrando solo los números.
         for state, sid in state_ids.items():
-            # Tomamos un representante del bloque:
-            rep = next(iter(state))
-            # Si el representante es un frozenset (estado original), extraemos sus números.
-            if isinstance(rep, frozenset):
-                label = "{" + ", ".join(str(n) for n in sorted(rep)) + "}"
-            else:
-                label = "{" + str(rep) + "}"
+            # Convertir el frozenset en una lista ordenada de números
+            label = "{" + ", ".join(str(s) for s in sorted(state)) + "}"
             shape = "doublecircle" if state in self.minimized_final else "circle"
             dot.node(sid, label=escape_label(label), shape=shape)
         # Nodo de inicio (sin forma) con flecha hacia el estado inicial
