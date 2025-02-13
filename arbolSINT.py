@@ -1,130 +1,94 @@
+# arbolSINT.py
+from graphviz import Digraph
 from symbol import Symbol
 
-class SyntaxNode:
-    """
-    Nodo del árbol sintáctico para la construcción del DFA.
-    Cada nodo tiene un símbolo; los nodos hoja (operandos) reciben una posición única.
-    """
-    def __init__(self, symbol, left=None, right=None):
-        self.symbol = symbol      
+# Caracter especial que marca el fin de la expresión (EOF)
+EOF_SYMBOL = '☒'
+
+class TreeNode:
+    def __init__(self, value, left=None, right=None):
+        """
+        Cada nodo tiene:
+          - value: el símbolo (operador o literal)
+          - left: hijo izquierdo (para operadores unarios o binarios)
+          - right: hijo derecho (solo para operadores binarios)
+        """
+        self.value = value
         self.left = left
         self.right = right
-        self.nullable = False 
-        self.firstpos = set() 
-        self.lastpos = set()  
-        self.position = None  # Solo para hojas (operandos)
-
-    def __repr__(self):
-        if self.position is not None:
-            return f"({self.symbol}, pos={self.position})"
-        else:
-            return f"({self.symbol})"
 
 class SyntaxTree:
-    """
-    Construye el árbol sintáctico a partir de una lista (postfix) de objetos Symbol.
-    Se agrega un marcador de fin (#) mediante la concatenación al final.
-    Luego se calculan nullable, firstpos, lastpos y followpos.
-    """
-    def __init__(self, postfix_tokens):
-        # Se agrega el símbolo de fin de cadena (#) al final, concatenándolo con el operador de concatenación "·"
-        self.postfix_tokens = postfix_tokens + [Symbol('#', 'operand'), Symbol('·', 'operator')]
-        print("Postfix tokens for SyntaxTree:", self.postfix_tokens)
-        self.root = self.build_tree()
-        print("Syntax Tree Root:", self.root)
-        self.followpos = {}
-        self.assign_positions()
-        self.compute_nullable_first_last()
-        self.compute_followpos()
+    def __init__(self, tokens):
+        """
+        Construye el árbol sintáctico a partir de la lista de tokens en notación postfix.
+        Al final se concatena el árbol resultante con un nodo EOF.
+        """
+        self.tokens = tokens
+        # Construir árbol a partir de la notación postfix
+        tree = self._build_tree(tokens)
+        # Se concatena el árbol con el símbolo EOF usando un nodo de concatenación.
+        eof_node = TreeNode(EOF_SYMBOL)
+        self.root = TreeNode('·', tree, eof_node)
 
-    def build_tree(self):
+    def _build_tree(self, tokens):
+        """
+        Usa el algoritmo de pila para convertir la expresión en postfix en un árbol.
+        Se asume que los operadores son:
+          - Unario: '*' 
+          - Binarios: '·' y '|'
+        """
         stack = []
-        for token in self.postfix_tokens:
+        for token in tokens:
             if token.type == "operand":
-                node = SyntaxNode(token)
+                # Cada literal se convierte en una hoja
+                node = TreeNode(token.name)
                 stack.append(node)
             elif token.type == "operator":
-                if token.name in {'*', '?', '+'}:
+                if token.name == '*':
                     if not stack:
-                        raise ValueError("pop from empty list during unary operator processing")
+                        raise Exception("Falta operando para '*'")
                     child = stack.pop()
-                    node = SyntaxNode(token, left=child)
-                else:  # operadores binarios: concatenación ('·') y alternación ('|')
+                    node = TreeNode('*', left=child)
+                elif token.name in {'·', '|'}:
                     if len(stack) < 2:
-                        raise ValueError("pop from empty list during binary operator processing")
+                        raise Exception(f"Faltan operandos para '{token.name}'")
                     right = stack.pop()
                     left = stack.pop()
-                    node = SyntaxNode(token, left, right)
+                    node = TreeNode(token.name, left, right)
+                else:
+                    raise Exception("Operador no soportado: " + token.name)
                 stack.append(node)
-        if not stack:
-            raise ValueError("Empty stack after building syntax tree")
+            else:
+                raise Exception("Tipo de token desconocido: " + token.type)
+        if len(stack) != 1:
+            raise Exception("Expresión postfix inválida, la pila debe quedar con un solo elemento")
         return stack.pop()
 
-    def assign_positions(self):
-        self._next_pos = 1
-        def traverse(node):
-            if node is None:
-                return
-            traverse(node.left)
-            traverse(node.right)
-            if node.symbol.type == "operand" and node.symbol.name != 'ε':
-                node.position = self._next_pos
-                self._next_pos += 1
-        traverse(self.root)
-        print("Assigned positions in Syntax Tree.")
+    def visualize(self, filename='syntax_tree'):
+        """
+        Genera la imagen del árbol sintáctico usando Graphviz.
+        Se crea un archivo (por ejemplo, syntax_tree.png).
+        """
+        dot = Digraph(comment='Árbol Sintáctico')
+        self._add_nodes(dot, self.root, counter=[0])
+        dot.render(filename, format='png', cleanup=True)
+        print(f"Imagen del árbol generada: {filename}.png")
 
-    def compute_nullable_first_last(self):
-        def traverse(node):
-            if node is None:
-                return
-            traverse(node.left)
-            traverse(node.right)
-            if node.symbol.type == "operand":
-                node.nullable = False
-                if node.position is not None:
-                    node.firstpos.add(node)
-                    node.lastpos.add(node)
-            elif node.symbol.name == '|':
-                node.nullable = node.left.nullable or node.right.nullable
-                node.firstpos = node.left.firstpos.union(node.right.firstpos)
-                node.lastpos = node.left.lastpos.union(node.right.lastpos)
-            elif node.symbol.name == '·':
-                node.nullable = node.left.nullable and node.right.nullable
-                if node.left.nullable:
-                    node.firstpos = node.left.firstpos.union(node.right.firstpos)
-                else:
-                    node.firstpos = set(node.left.firstpos)
-                if node.right.nullable:
-                    node.lastpos = node.left.lastpos.union(node.right.lastpos)
-                else:
-                    node.lastpos = set(node.right.lastpos)
-            elif node.symbol.name == '*':
-                node.nullable = True
-                node.firstpos = set(node.left.firstpos)
-                node.lastpos = set(node.left.lastpos)
-            elif node.symbol.name == '?':
-                node.nullable = True
-                node.firstpos = set(node.left.firstpos)
-                node.lastpos = set(node.left.lastpos)
-            elif node.symbol.name == '+':
-                node.nullable = node.left.nullable
-                node.firstpos = set(node.left.firstpos)
-                node.lastpos = set(node.left.lastpos)
-        traverse(self.root)
-        print("Computed nullable, firstpos, and lastpos.")
+    def _add_nodes(self, dot, node, counter):
+        """
+        Función recursiva que:
+          - Crea un nodo en el grafo con un id único.
+          - Recorre los hijos y crea las aristas correspondientes.
+        Retorna el id (en forma de cadena) del nodo actual.
+        """
+        node_id = str(counter[0])
+        dot.node(node_id, label=node.value)
+        counter[0] += 1
 
-    def compute_followpos(self):
-        self.followpos = {}
-        def traverse(node):
-            if node is None:
-                return
-            traverse(node.left)
-            traverse(node.right)
-            if node.symbol.name == '·':
-                for n in node.left.lastpos:
-                    self.followpos.setdefault(n, set()).update(node.right.firstpos)
-            if node.symbol.name in {'*', '+'}:
-                for n in node.lastpos:
-                    self.followpos.setdefault(n, set()).update(node.firstpos)
-        traverse(self.root)
-        print("Computed followpos.")
+        if node.left:
+            left_id = self._add_nodes(dot, node.left, counter)
+            dot.edge(node_id, left_id)
+        if node.right:
+            right_id = self._add_nodes(dot, node.right, counter)
+            dot.edge(node_id, right_id)
+        return node_id
