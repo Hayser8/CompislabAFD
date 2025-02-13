@@ -4,6 +4,7 @@ from parser import parse_regex, to_postfix
 from symbol import Symbol
 from arbolSINT import SyntaxTree
 from DFA import DFA
+from MinimizedDFA import MinimizedDFA
 import re
 
 def sanitize_filename(name):
@@ -45,7 +46,8 @@ if __name__ == "__main__":
         "if\\([ae]+\\)\\{[ei]+\\}(\\\\n(else\\{[jl]+\\}))?",
         "[ae03]+@[ae03]+\\.(com|net|org)(\\.(gt|cr|co))?",
         "{abc}+",
-        "a{b}+"
+        "a{b}+",
+        "((a|b)|(a|b))*abb((a|b)|(a|b))*"
     ]
     
     for expr in test_expressions:
@@ -55,20 +57,26 @@ if __name__ == "__main__":
             preprocessed = preprocess_expression(expr)
             print("Preprocessed:", repr(preprocessed))
             
-            # Se parsea la expresión a AST y se convierte a notación postfix.
+            # Construir el AST y la notación postfix.
             ast = parse_regex(preprocessed)
             postfix = to_postfix(ast)
             print("Postfix:     ", postfix)
             
-            # Se tokeniza la notación postfix para construir el árbol sintáctico.
+            # Tokenizar y construir el árbol sintáctico.
             tokens = tokenize_postfix(postfix)
             syntax_tree = SyntaxTree(tokens)
             
-            # Se construye y visualiza el DFA.
+            # Construir y visualizar el DFA
             dfa = DFA(syntax_tree)
             filename_dfa = "dfa_" + sanitize_filename(expr)
             dfa.visualize(filename_dfa)
             print("DFA image generated:", filename_dfa + ".png")
+            
+            # Construir y visualizar el DFA minimizado
+            min_dfa = MinimizedDFA(dfa)
+            filename_min = "min_dfa_" + sanitize_filename(expr)
+            min_dfa.visualize(filename_min)
+            print("Minimized DFA image generated:", filename_min + ".png")
         except Exception as e:
             print("Error processing expression:", expr)
             print(e)
