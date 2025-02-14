@@ -1,6 +1,5 @@
 import re
 
-# --- Definiciones de funciones de reemplazo, igual que en tu versión original ---
 def replace_escaped(match):
     escaped_char = match.group("escaped_char")
     if escaped_char in ("(", ")", "{", "}"):
@@ -15,8 +14,6 @@ def replace_escaped(match):
         return "§" + escaped_char
 
 def expand_quantifier_group(match):
-    # Simplemente devuelve el grupo en la forma {contenido} cuantificador
-    # tal como lo tenías en tu versión
     return "{" + match.group("qgroup_content") + "}" + match.group("qgroup_op")
 
 def expand_range(match):
@@ -36,7 +33,6 @@ def replace_question(match):
     token = match.group("question_token")
     return "(" + token + "|ε)"
 
-# --- Construcción del patrón compuesto ---
 _COMPOSITE_PATTERN = re.compile(
     r"(?P<escaped>\\(?P<escaped_char>.))|"
     r"(?P<qgroup>\{(?P<qgroup_content>[^}]+)(?P<qgroup_op>[+?*])\})|"
@@ -51,15 +47,12 @@ def preprocess_expression(expression):
     Realiza el preprocesamiento de la expresión en una sola pasada utilizando
     un patrón compuesto que captura todos los casos.
     """
-    # Paso 1: Reemplazar saltos de línea y espacios
     expression = expression.replace("\n", "§n").replace(" ", "")
     
     result = []
     last_end = 0
-    # Iteramos sobre todas las coincidencias en una sola pasada
     for m in _COMPOSITE_PATTERN.finditer(expression):
         start, end = m.span()
-        # Agregamos la parte de la cadena sin coincidencias
         result.append(expression[last_end:start])
         
         if m.group("escaped"):
@@ -75,9 +68,8 @@ def preprocess_expression(expression):
         elif m.group("question"):
             replacement = replace_question(m)
         else:
-            replacement = m.group(0)  # por si acaso
+            replacement = m.group(0)  
         result.append(replacement)
         last_end = end
-    # Agregar el resto de la cadena
     result.append(expression[last_end:])
     return "".join(result)
