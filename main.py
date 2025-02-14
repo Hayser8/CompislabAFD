@@ -75,7 +75,7 @@ if __name__ == "__main__":
         "{abc}+", "a{b}+", 
         "((a|b)|(a|b))*abb((a|b)|(a|b))*"
     ]
-    
+    sanitize_filename
     dfa_results = []
 
     for expr in test_expressions:

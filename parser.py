@@ -138,10 +138,25 @@ def parse_regex(input_str):
     return ast
 
 def flatten_concat(node):
-    if isinstance(node, Concat):
-        return flatten_concat(node.left) + flatten_concat(node.right)
-    else:
-        return [node]
+    """
+    Versión iterativa (in-order) de flatten_concat para evitar recursión profunda.
+    Devuelve una lista de nodos (hojas) en el orden de concatenación.
+    """
+    result = []
+    stack = []
+    current = node
+    while stack or current:
+        if current:
+            if isinstance(current, Concat):
+                stack.append(current)
+                current = current.left
+            else:
+                result.append(current)
+                current = None
+        else:
+            current = stack.pop()
+            current = current.right
+    return result
 
 def to_postfix(node):
     """
@@ -166,7 +181,7 @@ def to_postfix(node):
         operands = flatten_concat(node)
         parts = [to_postfix(op) for op in operands]
         if len(operands) > 1:
-            return " ".join(parts) + " " + " ".join("·" for _ in range(len(operands)-1))
+            return " ".join(parts) + " " + " ".join("·" for _ in range(len(operands) - 1))
         else:
             return parts[0]
     elif isinstance(node, Group):

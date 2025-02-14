@@ -1,27 +1,8 @@
 import re
 
-def expand_range(match):
-    start, end = match.group(1), match.group(2)
-    expanded = "|".join(chr(c) for c in range(ord(start), ord(end) + 1))
-    return f"({expanded})"
-
-def expand_list(match):
-    """
-    Une cada carácter con "|" para formar una alternancia.
-    """
-    chars = "|".join(match.group(1))
-    return f"({chars})"
-
+# --- Definiciones de funciones de reemplazo, igual que en tu versión original ---
 def replace_escaped(match):
-    """
-    Procesa las secuencias escapadas:
-      - Si se escapan paréntesis o llaves, se antepone el marcador § para que
-        sean tratados como literales y no como símbolos de agrupación.
-      - Si se escapan operadores (como +, ?, *, etc.), se antepone el marcador §.
-      - Los escapes especiales \n y \t se convierten en "§n" y "§t".
-      - Para cualquier otro carácter, se antepone §.
-    """
-    escaped_char = match.group(1)
+    escaped_char = match.group("escaped_char")
     if escaped_char in ("(", ")", "{", "}"):
         return "§" + escaped_char
     elif escaped_char in ("+", "?", "*", "|", ".", "^", "$"):
@@ -33,34 +14,70 @@ def replace_escaped(match):
     else:
         return "§" + escaped_char
 
+def expand_quantifier_group(match):
+    # Simplemente devuelve el grupo en la forma {contenido} cuantificador
+    # tal como lo tenías en tu versión
+    return "{" + match.group("qgroup_content") + "}" + match.group("qgroup_op")
+
+def expand_range(match):
+    start, end = match.group("range_start"), match.group("range_end")
+    expanded = "|".join(chr(c) for c in range(ord(start), ord(end) + 1))
+    return f"({expanded})"
+
+def expand_list(match):
+    chars = "|".join(match.group("list_content"))
+    return f"({chars})"
+
+def replace_plus(match):
+    token = match.group("plus_token")
+    return "(" + token + "·" + token + "*)"
+
+def replace_question(match):
+    token = match.group("question_token")
+    return "(" + token + "|ε)"
+
+# --- Construcción del patrón compuesto ---
+_COMPOSITE_PATTERN = re.compile(
+    r"(?P<escaped>\\(?P<escaped_char>.))|"
+    r"(?P<qgroup>\{(?P<qgroup_content>[^}]+)(?P<qgroup_op>[+?*])\})|"
+    r"(?P<range>\[(?P<range_start>[a-zA-Z0-9])\-(?P<range_end>[a-zA-Z0-9])\])|"
+    r"(?P<list>\[(?P<list_content>[a-zA-Z0-9]+)\])|"
+    r"(?P<plus>(?<!§)(?P<plus_token>(?:\((?:[^()]+|\([^()]*\))*\)|\{(?:[^{}]+|\{[^{}]*\})*\}|[a-zA-Z0-9]))\+)|"
+    r"(?P<question>(?<!§)(?P<question_token>(?:\((?:[^()]+|\([^()]*\))*\)|\{(?:[^{}]+|\{[^{}]*\})*\}|[a-zA-Z0-9]))\?)"
+)
+
 def preprocess_expression(expression):
     """
-    Preprocesa la expresión haciendo lo siguiente:
-      1. Reemplaza los saltos de línea reales por "§n".
-      2. Elimina los espacios.
-      3. Procesa las secuencias escapadas (añadiendo el marcador § según corresponda).
-      4. Corrige agrupamientos con cuantificador dentro (por ejemplo, transforma "{[ei]+}" en "{[ei]}+").
-      5. Expande clases de caracteres:
-            - Rango: [0-3]  → (0|1|2|3)
-            - Lista: [ae03] → (a|e|0|3)
-      6. Transforma los cuantificadores + y ? aplicados a un token no escapado,
-         permitiendo un nivel de agrupamiento anidado.
-         (El lookbehind (?<!§) evita transformar aquellos precedidos por §).
+    Realiza el preprocesamiento de la expresión en una sola pasada utilizando
+    un patrón compuesto que captura todos los casos.
     """
-    expression = expression.replace("\n", "§n")
-    expression = expression.replace(" ", "")
-    expression = re.sub(r"\\(.)", replace_escaped, expression)
-    expression = re.sub(r"\{([^}]+)([+?*])\}", r"{\1}\2", expression)
-    expression = re.sub(r"\[([a-zA-Z0-9])\-([a-zA-Z0-9])\]", expand_range, expression)
-    expression = re.sub(r"\[([a-zA-Z0-9]+)\]", expand_list, expression)
-    expression = re.sub(
-        r"(?<!§)((?:\((?:[^()]+|\([^()]*\))*\)|\{(?:[^{}]+|\{[^{}]*\})*\}|[a-zA-Z0-9]))\+",
-        lambda m: "(" + m.group(1) + "·" + m.group(1) + "*)",
-        expression
-    )
-    expression = re.sub(
-        r"(?<!§)((?:\((?:[^()]+|\([^()]*\))*\)|\{(?:[^{}]+|\{[^{}]*\})*\}|[a-zA-Z0-9]))\?",
-        lambda m: "(" + m.group(1) + "|ε)",
-        expression
-    )
-    return expression
+    # Paso 1: Reemplazar saltos de línea y espacios
+    expression = expression.replace("\n", "§n").replace(" ", "")
+    
+    result = []
+    last_end = 0
+    # Iteramos sobre todas las coincidencias en una sola pasada
+    for m in _COMPOSITE_PATTERN.finditer(expression):
+        start, end = m.span()
+        # Agregamos la parte de la cadena sin coincidencias
+        result.append(expression[last_end:start])
+        
+        if m.group("escaped"):
+            replacement = replace_escaped(m)
+        elif m.group("qgroup"):
+            replacement = expand_quantifier_group(m)
+        elif m.group("range"):
+            replacement = expand_range(m)
+        elif m.group("list"):
+            replacement = expand_list(m)
+        elif m.group("plus"):
+            replacement = replace_plus(m)
+        elif m.group("question"):
+            replacement = replace_question(m)
+        else:
+            replacement = m.group(0)  # por si acaso
+        result.append(replacement)
+        last_end = end
+    # Agregar el resto de la cadena
+    result.append(expression[last_end:])
+    return "".join(result)
