@@ -3,7 +3,8 @@ from preprocessor import preprocess_expression
 from parser import parse_regex, to_postfix
 from symbol import Symbol
 from arbolSINT import SyntaxTree
-from DFA import DFA
+from DFAG import DFAG
+from minimizer import MinimizedDFA
 # Si deseas usar DFA minimizado, también importas MinimizedDFA
 
 def tokenize_postfix(postfix_str):
@@ -107,11 +108,15 @@ def integrate_yalex_pipeline(filename):
                 print(f"DEBUG: Error procesando la regla {regex}: {e}")
                 raise
             syntax_tree = SyntaxTree(tokens)
-            dfa = DFA(syntax_tree)
+            dfa = DFAG(syntax_tree)
+            # minimizado
+            min_dfa = MinimizedDFA(dfa)
+            
             dfa_dict.setdefault(rule_name, []).append({
                 "regex": regex,
                 "action": action,
-                "dfa": dfa
+                "dfa": dfa,
+                "min_dfa": min_dfa
             })
 
     return {
@@ -122,16 +127,30 @@ def integrate_yalex_pipeline(filename):
     }
 
 if __name__ == "__main__":
+    # 1. Ejecuta el pipeline y obtiene el resultado
     pipeline_result = integrate_yalex_pipeline("lexer.yal")
+
+    # 2. Imprime el header
     print("Header:")
     print(pipeline_result["header"])
+    
+    # 3. Recorre las reglas encontradas
     print("\nRules:")
     for rule, dfa_list in pipeline_result["rules"].items():
         print(f"Regla {rule}:")
         for item in dfa_list:
             print("  Regex:", item["regex"])
             print("  Action:", item["action"])
-            # Aquí también podrías visualizar el DFA:
-            # item["dfa"].visualize(f"dfa_{rule}")
+            
+            # 'dfa' es la instancia de DFAG devuelta en el diccionario
+            # Se llama el método visualize en esa instancia
+            item["dfa"].visualize(f"dfa_{rule}")
+
+            # 'min_dfa' es la instancia de MinimizedDFA
+            # También posee el método visualize
+            item["min_dfa"].visualize(f"dfa_min_{rule}")
+            
+    # 4. Imprime el trailer
     print("\nTrailer:")
     print(pipeline_result["trailer"])
+
