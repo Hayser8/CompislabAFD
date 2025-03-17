@@ -1,75 +1,142 @@
 import re
+from functools import lru_cache
 
-def replace_escaped(match):
-    escaped_char = match.group("escaped_char")
-    if escaped_char in ("(", ")", "{", "}"):
-        return "§" + escaped_char
-    elif escaped_char in ("+", "?", "*", "|", ".", "^", "$"):
-        return "§" + escaped_char
-    elif escaped_char == "n":
-        return "§n"
-    elif escaped_char == "t":
-        return "§t"
-    else:
-        return "§" + escaped_char
-
-def expand_quantifier_group(match):
-    return "{" + match.group("qgroup_content") + "}" + match.group("qgroup_op")
-
-def expand_range(match):
-    start, end = match.group("range_start"), match.group("range_end")
-    expanded = "|".join(chr(c) for c in range(ord(start), ord(end) + 1))
-    return f"({expanded})"
-
-def expand_list(match):
-    chars = "|".join(match.group("list_content"))
-    return f"({chars})"
-
-def replace_plus(match):
-    token = match.group("plus_token")
-    return "(" + token + "·" + token + "*)"
-
-def replace_question(match):
-    token = match.group("question_token")
-    return "(" + token + "|ε)"
-
-_COMPOSITE_PATTERN = re.compile(
-    r"(?P<escaped>\\(?P<escaped_char>.))|"
-    r"(?P<qgroup>\{(?P<qgroup_content>[^}]+)(?P<qgroup_op>[+?*])\})|"
-    r"(?P<range>\[(?P<range_start>[a-zA-Z0-9])\-(?P<range_end>[a-zA-Z0-9])\])|"
-    r"(?P<list>\[(?P<list_content>[a-zA-Z0-9]+)\])|"
-    r"(?P<plus>(?<!§)(?P<plus_token>(?:\((?:[^()]+|\([^()]*\))*\)|\{(?:[^{}]+|\{[^{}]*\})*\}|[a-zA-Z0-9]))\+)|"
-    r"(?P<question>(?<!§)(?P<question_token>(?:\((?:[^()]+|\([^()]*\))*\)|\{(?:[^{}]+|\{[^{}]*\})*\}|[a-zA-Z0-9]))\?)"
-)
-
-def preprocess_expression(expression):
+@lru_cache(maxsize=None)
+def expand_charclass_cached(content):
     """
-    Realiza el preprocesamiento de la expresión en una sola pasada utilizando
-    un patrón compuesto que captura todos los casos.
+    Expande una clase de caracteres dada su cadena de contenido.
+    Elimina los caracteres '|' y comillas simples, detecta rangos (por ejemplo, a-z)
+    y devuelve una expresión de alternancia.
     """
-    expression = expression.replace("\n", "§n").replace(" ", "")
-    
-    result = []
-    last_end = 0
-    for m in _COMPOSITE_PATTERN.finditer(expression):
-        start, end = m.span()
-        result.append(expression[last_end:start])
-        
-        if m.group("escaped"):
-            replacement = replace_escaped(m)
-        elif m.group("qgroup"):
-            replacement = expand_quantifier_group(m)
-        elif m.group("range"):
-            replacement = expand_range(m)
-        elif m.group("list"):
-            replacement = expand_list(m)
-        elif m.group("plus"):
-            replacement = replace_plus(m)
-        elif m.group("question"):
-            replacement = replace_question(m)
+    content_clean = content.replace("|", "").replace("'", "")
+    chars = []
+    i = 0
+    length = len(content_clean)
+    while i < length:
+        if i + 2 < length and content_clean[i+1] == '-':
+            start, end = content_clean[i], content_clean[i+2]
+            chars.extend(chr(c) for c in range(ord(start), ord(end) + 1))
+            i += 3
         else:
-            replacement = m.group(0)  
-        result.append(replacement)
-        last_end = end
-    result.append(expression[last_end:])
-    return "".join(result)
+            chars.append(content_clean[i])
+            i += 1
+    unique_chars = sorted(set(chars))
+    return "(" + "|".join(unique_chars) + ")"
+
+def parse_expr(expr, i, end, closing=None):
+    """
+    Procesa recursivamente la expresión desde la posición i hasta end.
+    Si se indica un carácter de cierre (closing), se detiene cuando se lo encuentra.
+    Retorna la cadena procesada y la nueva posición.
+    """
+    result = []
+    while i < end:
+        if closing is not None and expr[i] == closing:
+            return "".join(result), i+1
+
+        c = expr[i]
+        if c == '\\':
+            # Secuencia de escape: se reemplaza '\' por '§'
+            if i+1 < end:
+                result.append("§" + expr[i+1])
+                i += 2
+            else:
+                result.append("§")
+                i += 1
+        elif c == '[':
+            # Procesa una clase de caracteres: busca el cierre ']'
+            j = expr.find(']', i+1)
+            if j == -1:
+                result.append(c)
+                i += 1
+            else:
+                content = expr[i+1:j]
+                expanded = expand_charclass_cached(content)
+                result.append(expanded)
+                i = j+1
+                # Aplica operador si le sigue
+                if i < end and expr[i] in ('+', '?', '*'):
+                    op = expr[i]
+                    if op == '+':
+                        token = "(" + expanded + "·" + expanded + "*)"
+                    elif op == '?':
+                        token = "(" + expanded + "|ε)"
+                    else:  # '*'
+                        token = expanded + "*"
+                    result[-1] = token
+                    i += 1
+        elif c == '(':
+            # Procesa un grupo anidado recursivamente
+            inner, new_i = parse_expr(expr, i+1, end, closing=')')
+            token = "(" + inner + ")"
+            i = new_i
+            # Aplica operador si le sigue al grupo
+            if i < end and expr[i] in ('+', '?', '*'):
+                op = expr[i]
+                if op == '+':
+                    token = "(" + token + "·" + token + "*)"
+                elif op == '?':
+                    token = "(" + token + "|ε)"
+                else:  # '*'
+                    token = token + "*"
+                i += 1
+            result.append(token)
+        elif c == '{':
+            # Detecta grupo cuantificador del tipo {contenido operator}
+            j = expr.find('}', i+1)
+            if j != -1 and (j - i) >= 2 and expr[j-1] in "+?*":
+                qgroup_content = expr[i+1:j-1]
+                qgroup_op = expr[j-1]
+                token = "{" + qgroup_content + "}" + qgroup_op
+                result.append(token)
+                i = j+1
+            else:
+                result.append(c)
+                i += 1
+        elif c.isalnum():
+            # Token simple (alfanumérico)
+            token = c
+            i += 1
+            # Aplica operador '+' o '?' o '*' si le sigue
+            if i < end and expr[i] in ('+', '?', '*'):
+                op = expr[i]
+                if op == '+':
+                    token = "(" + token + "·" + token + "*)"
+                elif op == '?':
+                    token = "(" + token + "|ε)"
+                else:  # '*'
+                    token = token + "*"
+                i += 1
+            result.append(token)
+        elif c in ('|', '·'):
+            # Operadores literales se copian
+            result.append(c)
+            i += 1
+        else:
+            # Otros caracteres se copian directamente
+            result.append(c)
+            i += 1
+    return "".join(result), i
+
+def preprocess_expression_manual(expression):
+    """
+    Preprocesa la expresión:
+      - Reemplaza saltos de línea por "§n" y elimina espacios.
+      - Procesa de forma recursiva secuencias de escape, clases de caracteres,
+        grupos anidados y operadores '+' y '?' (y '*' sin transformación).
+    """
+    expr = expression.replace("\n", "§n").replace(" ", "")
+    processed, _ = parse_expr(expr, 0, len(expr), closing=None)
+    return processed
+
+# --- Código de prueba del parser manual recursivo ---
+if __name__ == "__main__":
+    test_expr = "['a'-'z' 'A'-'Z' '_']"
+    preprocessed_manual = preprocess_expression_manual(test_expr)
+    print("Expresión original:", test_expr)
+    print("Preprocesada (manual):", preprocessed_manual)
+
+    test_expr2 = "['a'-'z' 'A'-'Z' '_'] (['a'-'z' 'A'-'Z' '_'] | ['0'-'9'])*"
+    preprocessed_manual2 = preprocess_expression_manual(test_expr2)
+    print("\nExpresión original:", test_expr2)
+    print("Preprocesada (manual):", preprocessed_manual2)

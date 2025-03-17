@@ -1,10 +1,41 @@
 from yalex_parser import YALexParser
-from preprocessor import preprocess_expression
+# Importa el preprocessor manual en lugar del original
+from preprocessor import preprocess_expression_manual  
 from parser import parse_regex, to_postfix
 from symbol import Symbol
 from arbolSINT import SyntaxTree
 from DFA import DFA
 from MinimizedDFA import MinimizedDFA
+
+def normalize_token_regex(token_regex):
+    """
+    Convierte una definición en la forma "['a'-'z' 'A'-'Z' '_']" 
+    a la notación estándar "[a-zA-Z_]" eliminando comillas y espacios.
+    """
+    if token_regex.startswith("[") and token_regex.endswith("]"):
+        inner = token_regex[1:-1]
+        # Elimina comillas y espacios
+        inner = inner.replace("'", "").replace(" ", "")
+        return f"[{inner}]"
+    return token_regex
+
+def recursive_expand(expr, tokens_definitions):
+    """
+    Reemplaza recursivamente en expr cada ocurrencia de un nombre de token (clave en tokens_definitions)
+    por su definición. Se usa un simple while con str.replace, sin usar re.
+    """
+    changed = True
+    # Repite hasta que no haya cambios
+    while changed:
+        changed = False
+        for token_name, token_def in tokens_definitions.items():
+            # Si se encuentra el nombre del token en la expresión,
+            # se reemplaza por su definición
+            new_expr = expr.replace(token_name, token_def)
+            if new_expr != expr:
+                expr = new_expr
+                changed = True
+    return expr
 
 def tokenize_postfix(postfix_str):
     tokens = postfix_str.split()
@@ -20,11 +51,18 @@ def tokenize_postfix(postfix_str):
     return result
 
 def process_rule(rule_expr, tokens_definitions):
+    """
+    Procesa la cadena de la expresión regular extraída de la regla:
+      - Si la regla es un literal entre comillas, se le quitan las comillas.
+      - Si la regla es exactamente el nombre de un token definido, se reemplaza recursivamente por su definición.
+      - Si la regla contiene nombres de tokens, se sustituyen por sus definiciones.
+      - Luego se preprocesa, se parsea y se convierte a notación postfix.
+    Devuelve la lista de tokens.
+    """
     print("DEBUG: Regla original:", repr(rule_expr))
-    # Conjunto de literales que queremos tratar como tales.
     literal_tokens = {'+', '-', '*', '/', '%', '=', '==', '!=', '<', '<=', '>', '>=' , '(', ')', '{', '}', '[', ']'}
     
-    # Si la regla es un literal encerrado en comillas, quitarlas
+    # Si es un literal entre comillas, quita las comillas y, si es un operador o símbolo, lo formatea
     if rule_expr.startswith("'") and rule_expr.endswith("'"):
         rule_expr = rule_expr[1:-1]
         print("DEBUG: Se quitaron las comillas:", repr(rule_expr))
@@ -32,26 +70,27 @@ def process_rule(rule_expr, tokens_definitions):
             rule_expr = f"lit({rule_expr})"
             print("DEBUG: Literal operator convertido a:", repr(rule_expr))
     
-    # Sustitución de tokens definidos en la regla
-    for token_name, token_regex in tokens_definitions.items():
-        if rule_expr.strip() == token_name:
-            print(f"DEBUG: La regla coincide exactamente con token '{token_name}', se reemplaza por su definición.")
-            rule_expr = token_regex
-        else:
+    # Si la regla es exactamente el nombre de un token definido, se expande recursivamente
+    if rule_expr.strip() in tokens_definitions:
+        rule_expr = recursive_expand(tokens_definitions[rule_expr.strip()], tokens_definitions)
+    else:
+        # Sino, se sustituyen todas las ocurrencias de tokens definidos en la regla
+        for token_name, token_regex in tokens_definitions.items():
             if token_name in rule_expr:
-                print(f"DEBUG: Se encontró token '{token_name}' en la regla; se sustituye por: {token_regex}")
-                rule_expr = rule_expr.replace(token_name, f"({token_regex})")
+                expanded = recursive_expand(token_regex, tokens_definitions)
+                print(f"DEBUG: Se encontró token '{token_name}' en la regla; se sustituye por: {expanded}")
+                rule_expr = rule_expr.replace(token_name, f"({expanded})")
     print("DEBUG: Regla tras sustitución:", repr(rule_expr))
     
-    # Si la regla ya está en formato literal, se procesa directamente
+    # Si la regla ya está en formato lit(...), se procesa directamente
     if rule_expr.startswith("lit(") and rule_expr.endswith(")"):
         print("DEBUG: La regla es un literal ya formateado, se procesa directamente.")
         tokens = tokenize_postfix(rule_expr)
         print("DEBUG: Tokens obtenidos:", tokens)
         return tokens
     
-    # Preprocesar la expresión regular
-    preprocessed = preprocess_expression(rule_expr)
+    # Se utiliza el nuevo preprocessor manual para mejorar el rendimiento con entradas grandes
+    preprocessed = preprocess_expression_manual(rule_expr)
     print("DEBUG: Preprocesada:", repr(preprocessed))
     
     try:

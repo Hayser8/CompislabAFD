@@ -1,10 +1,9 @@
-from thelexer import scan
+from thelexer import scan, get_token
 
-# Cadena de prueba simple que solo usa tokens reconocidos: LPAREN, PLUS, RPAREN y SEMICOLON.
-input_string = "(+);"
-
-try:
-    tokens = scan(input_string)
-    print("Tokens reconocidos:", tokens)
-except Exception as e:
-    print("Error durante el análisis:", e)
+test_tokens = ["if", "(", "x", "+", "10", ")", ";"]
+for token in test_tokens:
+    try:
+        tk, act, adv = get_token(token)
+        print(f"Entrada: {token!r} -> {tk!r}, {act!r}, adv: {adv}")
+    except Exception as e:
+        print(f"Entrada: {token!r} -> Error: {e}")
