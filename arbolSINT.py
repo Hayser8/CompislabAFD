@@ -1,5 +1,5 @@
 from graphviz import Digraph
-from symbol import Symbol
+from symbol import Symbol, SymbolType
 
 EOF_SYMBOL = '☒'
 
@@ -35,10 +35,10 @@ class SyntaxTree:
         """
         stack = []
         for token in tokens:
-            if token.type == "operand":
+            if token.type == SymbolType.LITERAL:
                 node = TreeNode(token.name)
                 stack.append(node)
-            elif token.type == "operator":
+            elif token.type == SymbolType.OPERATOR:
                 if token.name == '*':
                     if not stack:
                         raise Exception("Falta operando para '*'")
@@ -54,7 +54,7 @@ class SyntaxTree:
                     raise Exception("Operador no soportado: " + token.name)
                 stack.append(node)
             else:
-                raise Exception("Tipo de token desconocido: " + token.type)
+                raise Exception("Tipo de token desconocido: " + str(token.type))
         if len(stack) != 1:
             raise Exception("Expresión postfix inválida, la pila debe quedar con un solo elemento")
         return stack.pop()
