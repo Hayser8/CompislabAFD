@@ -18,47 +18,48 @@ keywords = {
 
 (* Definiciones de expresiones regulares reutilizables *)
 let digit = ['0'-'9']
-let letter = ['a'-'z' 'A'-'Z' '_']
+let letter = ['a'-'z''A'-'Z'_]    (* <--- SIN espacio entre 'a'-'z' y 'A'-'Z' y '_' *)
 let number = digit+
 let floatnum = digit+ '.' digit+
 let identifier = letter (letter | digit)*
-let whitespace = [' ' '\t' '\r']
+
+let whitespace = [' ' '\t' '\r']  (* Espacios, tab, carriage return *)
 let newline = '\n'
 
 (* Reglas del Analizador Léxico *)
 rule gettoken =
-whitespace+   { return "WHITESPACE" } (* Ignorar espacios en blanco *)
-| newline     { return "NEWLINE" }    (* Nueva línea *)
-| number      { return "INTEGER" }    (* Número entero *)
-| floatnum    { return "FLOAT" }      (* Número flotante *)
-| identifier  { 
-    if lxm in keywords:
-        return keywords[lxm]
-    return "IDENTIFIER"
-}
-| '+'         { return "PLUS" }        (* Operador suma *)
-| '-'         { return "MINUS" }       (* Operador resta *)
-| '*'         { return "TIMES" }       (* Operador multiplicación *)
-| '/'         { return "DIV" }         (* Operador división *)
-| '%'         { return "MODULO" }      (* Módulo *)
-| '=='        { return "EQUAL" }       (* Comparación == *)
-| '!='        { return "NOT_EQUAL" }   (* Comparación != *)
-| '<'         { return "LESS_THAN" }   (* Comparación < *)
-| '<='        { return "LESS_EQUAL" }  (* Comparación <= *)
-| '>'         { return "GREATER_THAN" } (* Comparación > *)
-| '>='        { return "GREATER_EQUAL" } (* Comparación >= *)
-| '='         { return "ASSIGN" }      (* Asignación = *)
-| ';'         { return "SEMICOLON" }   (* Punto y coma *)
-| ','         { return "COMMA" }       (* Coma *)
-| '('         { return "LPAREN" }      (* Paréntesis izquierdo *)
-| ')'         { return "RPAREN" }      (* Paréntesis derecho *)
-| '{'         { return "LBRACE" }      (* Llave izquierda *)
-| '}'         { return "RBRACE" }      (* Llave derecha *)
-| '['         { return "LBRACKET" }    (* Corchete izquierdo *)
-| ']'         { return "RBRACKET" }    (* Corchete derecho *)
-| '//' .* '\n' { return "COMMENT" }    (* Comentario de línea *)
-| '/*' ( _ )* '*/' { return "MULTILINE_COMMENT" } (* Comentario de bloque *)
-| eof { raise("Fin de archivo") } (* Manejo del final del archivo *)
+    whitespace+   { return "WHITESPACE" }    (* Ignorar espacios en blanco *)
+  | newline       { return "NEWLINE" }       (* Nueva línea *)
+  | number        { return "INTEGER" }       (* Número entero *)
+  | floatnum      { return "FLOAT" }         (* Número flotante *)
+  | identifier    { 
+      if lxm in keywords:
+          return keywords[lxm]
+      return "IDENTIFIER"
+    }
+  | '+'           { return "PLUS" }          (* Operador suma *)
+  | '-'           { return "MINUS" }         (* Operador resta *)
+  | '*'           { return "TIMES" }         (* Operador multiplicación *)
+  | '/'           { return "DIV" }           (* Operador división *)
+  | '%'           { return "MODULO" }        (* Módulo *)
+  | '=='          { return "EQUAL" }         (* Comparación == *)
+  | '!='          { return "NOT_EQUAL" }     (* Comparación != *)
+  | '<'           { return "LESS_THAN" }     (* Comparación < *)
+  | '<='          { return "LESS_EQUAL" }    (* Comparación <= *)
+  | '>'           { return "GREATER_THAN" }  (* Comparación > *)
+  | '>='          { return "GREATER_EQUAL" } (* Comparación >= *)
+  | '='           { return "ASSIGN" }        (* Asignación = *)
+  | ';'           { return "SEMICOLON" }     (* Punto y coma *)
+  | ','           { return "COMMA" }         (* Coma *)
+  | '('           { return "LPAREN" }        (* Paréntesis izquierdo *)
+  | ')'           { return "RPAREN" }        (* Paréntesis derecho *)
+  | '{'           { return "LBRACE" }        (* Llave izquierda *)
+  | '}'           { return "RBRACE" }        (* Llave derecha *)
+  | '['           { return "LBRACKET" }      (* Corchete izquierdo *)
+  | ']'           { return "RBRACKET" }      (* Corchete derecho *)
+  | '//' [^\n]* '\n'  { return "COMMENT" }           (* Comentario de línea *)
+  | '/*' ( _ )* '*/'   { return "MULTILINE_COMMENT" } (* Comentario de bloque *)
+  | eof { raise("Fin de archivo") }          (* Manejo del final del archivo *)
 
 {
 # Trailer: Código que se agrega al final del archivo generado

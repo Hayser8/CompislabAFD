@@ -1,4 +1,5 @@
 import json
+from yalex_pipeline import integrate_yalex_pipeline
 
 def clean_block(block):
     """
@@ -11,23 +12,16 @@ def clean_block(block):
          las agrega al final.
     """
     lines = block.splitlines()
-    # Elimina la primera línea si es exactamente "{"
     if lines and lines[0].strip() == "{":
         lines = lines[1:]
-    # Elimina la última línea si es exactamente "}"
     if lines and lines[-1].strip() == "}":
         lines = lines[:-1]
     cleaned = "\n".join(lines).rstrip()
-    
-    # Verifica el balance de llaves en el contenido interno
     open_braces = cleaned.count("{")
     close_braces = cleaned.count("}")
     if open_braces > close_braces:
-        # Agrega las llaves de cierre faltantes
         cleaned += "\n" + "}" * (open_braces - close_braces)
-    
     return cleaned
-
 
 def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
     """
@@ -35,10 +29,8 @@ def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
     Se incluye:
       - El header (limpio con clean_block).
       - La definición de la lista de alternativas para "gettoken" (usando su DFA minimizado).
-      - Las funciones simulate_dfa, get_token y scan.
+      - Las funciones decode_robust_key, simulate_dfa, get_token y scan.
       - El trailer (limpio con clean_block).
-    Se escribe el archivo final en secciones para evitar que las llaves internas del header/trailer
-    interfieran con la interpolación de f-strings.
     """
     header = clean_block(pipeline_result["header"])
     trailer = clean_block(pipeline_result["trailer"])
@@ -52,7 +44,6 @@ def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
     dfa_alternatives = []
     for entry in dfa_list:
         min_dfa = entry["min_dfa"]
-        # Convertir los estados a cadena para asegurar la serialización JSON
         start_state = str(min_dfa.minimized_start)
         final_states = [str(s) for s in min_dfa.minimized_final]
         serializable_transitions = {}
@@ -72,85 +63,134 @@ def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
 
     dfa_alternatives_json = json.dumps(dfa_alternatives, indent=4)
 
-    # Definir el cuerpo del código para las funciones del analizador léxico
-    lexer_functions = """
-def simulate_dfa(dfa, input_string):
-    \"\"\"
-    Simula el DFA dado (representado por un diccionario con:
-      - dfa_transitions: dict con claves de estado (str) y valores dict {symbol: target_state (str)}
-      - dfa_start: estado inicial (str)
-      - dfa_final: lista de estados finales (str)
-    ) sobre la cadena input_string.
-    Retorna (token, advance) si se reconoce un token, o (None, 0) en caso contrario.
-    \"\"\"
-    state = dfa["dfa_start"]
-    token = ""
-    pos = 0
-    last_final_state = None
-    last_final_pos = 0
-    while pos < len(input_string):
-        ch = input_string[pos]
-        state_trans = dfa["dfa_transitions"].get(str(state), {})
-        if ch in state_trans:
-            state = state_trans[ch]
-            token += ch
-            pos += 1
-            if state in dfa["dfa_final"]:
-                last_final_state = state
-                last_final_pos = pos
-        else:
-            break
-    if last_final_state is not None:
-        return token[:last_final_pos], last_final_pos
-    return None, 0
+    lexer_functions = (
+        "def decode_robust_key(key):\n"
+        "    \"\"\"\n"
+        "    Decodifica manualmente una clave robusta.\n"
+        "    Si la clave comienza con 'LIT<<' y termina con '>>', se remueven estos delimitadores.\n"
+        "    Luego, si la clave comienza con dígitos seguidos de ':', se extrae la longitud y se divide el contenido\n"
+        "    en alternativas usando '|' como separador. Si el contenido no termina en ')', se asume literal de longitud 1.\n"
+        "    Retorna (True, longitud, set(alternativas)) si se cumple; de lo contrario, (False, None, None).\n"
+        "    \"\"\"\n"
+        "    if not isinstance(key, str):\n"
+        "        key = str(key)\n"
+        "    if key.startswith(\"LIT<<\") and key.endswith(\">>\"):\n"
+        "        key = key[5:-2]\n"
+        "\n"
+        "    i = 0\n"
+        "    while i < len(key) and key[i].isdigit():\n"
+        "        i += 1\n"
+        "    if i > 0 and i < len(key) and key[i] == ':':\n"
+        "        # Caso completo: se espera que tras ':' haya '(' y que termine en ')'\n"
+        "        if i+1 < len(key) and key[i+1] == '(' and key[-1] == ')':\n"
+        "            length_val = 0\n"
+        "            for j in range(i):\n"
+        "                length_val = length_val * 10 + (ord(key[j]) - ord('0'))\n"
+        "            alternatives_str = key[i+2:-1]\n"
+        "            alt_list = alternatives_str.split('|')\n"
+        "            return True, length_val, set(alt_list)\n"
+        "        else:\n"
+        "            # Si no se encuentran los paréntesis, se asume literal de longitud 1\n"
+        "            return True, 1, set([key[i+1:]])\n"
+        "    if key.startswith(\":\"):\n"
+        "        content = key[1:]\n"
+        "        if content.startswith(\"(\") and content.endswith(\")\"):\n"
+        "            content = content[1:-1]\n"
+        "        if '|' in content:\n"
+        "            alt_list = content.split(\"|\")\n"
+        "            return True, 1, set(alt_list)\n"
+        "        else:\n"
+        "            return True, 1, set([content])\n"
+        "    return False, None, None\n\n"
+        "def simulate_dfa(dfa, input_string):\n"
+        "    state = dfa['dfa_start']\n"
+        "    token = ''\n"
+        "    pos = 0\n"
+        "    last_final_state = None\n"
+        "    last_final_pos = 0\n\n"
+        "    while pos < len(input_string):\n"
+        "        ch_real = input_string[pos]\n"
+        "        ch = ch_real\n\n"
+        "        state_trans = dfa['dfa_transitions'].get(str(state), {})\n"
+        "        found_transition = None\n"
+        "        for key, target in state_trans.items():\n"
+        "            robust, length_val, alt_set = decode_robust_key(key)\n"
+        "            if robust:\n"
+        "                if ch in alt_set:\n"
+        "                    found_transition = target\n"
+        "                    break\n"
+        "            else:\n"
+        "                if ch == key:\n"
+        "                    found_transition = target\n"
+        "                    break\n"
+        "        if found_transition is not None:\n"
+        "            state = found_transition\n"
+        "            token += ch_real\n"
+        "            pos += 1\n"
+        "            if state in dfa['dfa_final']:\n"
+        "                last_final_state = state\n"
+        "                last_final_pos = pos\n"
+        "        else:\n"
+        "            break\n\n"
+        "    if last_final_state is not None:\n"
+        "        return token, last_final_pos\n"
+        "    else:\n"
+        "        return None, 0\n\n"
+        "def get_token(input_string):\n"
+        "    \"\"\"\n"
+        "    Recorre todas las alternativas de DFA y retorna el token (y su acción) que tenga el mayor avance.\n"
+        "    Si ninguna alternativa reconoce un token, retorna (None, None, 0).\n"
+        "    \"\"\"\n"
+        "    best_token = None\n"
+        "    best_action = None\n"
+        "    best_length = 0\n"
+        "    for dfa in dfa_alternatives:\n"
+        "        token, length = simulate_dfa(dfa, input_string)\n"
+        "        if token is not None and length > best_length:\n"
+        "            best_token = token\n"
+        "            best_action = dfa['action']\n"
+        "            best_length = length\n"
+        "    return best_token, best_action, best_length\n\n"
+        "def scan(input_string):\n"
+        "    tokens = []\n"
+        "    pos = 0\n"
+        "    while pos < len(input_string):\n"
+        "        token, action, advance = get_token(input_string[pos:])\n"
+        "        if token is None or advance == 0:\n"
+        "            raise Exception('Error léxico en: ' + input_string[pos:])\n\n"
+        "        if action not in ('WHITESPACE', 'NEWLINE'):\n"
+        "            tokens.append((token, action))\n\n"
+        "        pos += advance\n"
+        "    return tokens\n"
+    )
 
-def get_token(input_string):
-    \"\"\"
-    Recorre todas las alternativas de DFA y retorna el token (y su acción) que tenga el mayor avance.
-    Si ninguna alternativa reconoce un token, retorna (None, None, 0).
-    \"\"\"
-    best_token = None
-    best_action = None
-    best_length = 0
-    for dfa in dfa_alternatives:
-        token, length = simulate_dfa(dfa, input_string)
-        if token is not None and length > best_length:
-            best_token = token
-            best_action = dfa["action"]
-            best_length = length
-    return best_token, best_action, best_length
-
-def scan(input_string):
-    \"\"\"
-    Función principal del analizador léxico. Recorre la cadena de entrada extrayendo tokens y sus acciones.
-    Retorna una lista de tuplas (token, action).
-    \"\"\"
-    tokens = []
-    pos = 0
-    while pos < len(input_string):
-        token, action, advance = get_token(input_string[pos:])
-        if token is None or advance == 0:
-            raise Exception("Error léxico en: " + input_string[pos:])
-        tokens.append((token, action))
-        pos += advance
-    return tokens
-"""
-
-    # Construir el código final concatenando las secciones sin usar un gran f-string
-    code = "\n".join([
+    code_parts = [
         header,
-        "\n# --- DFA generados por YALex Generator (alternativas para \"gettoken\") ---\n",
-        "dfa_alternatives = " + dfa_alternatives_json,
-        "\n" + lexer_functions,
-        "\n# --- Fin de la generación del analizador léxico ---\n",
+        "# --- DFA generados por YALex Generator (alternativas para \"gettoken\") ---",
+        f"dfa_alternatives = {dfa_alternatives_json}",
+        lexer_functions,
+        "# --- Fin de la generación del analizador léxico ---",
         trailer
-    ])
+    ]
+
+    final_code = "\n\n".join(part for part in code_parts if part.strip())
 
     with open(output_filename, "w", encoding="utf-8") as f:
-        f.write(code)
+        f.write(final_code)
+
     print(f"El analizador léxico ha sido generado en {output_filename}")
 
+def main():
+    """
+    Ejecuta la generación del lexer a partir de 'lexer.yal'.
+    """
+    print("=== Iniciando generación de analizador léxico con YALex ===")
+    try:
+        pipeline_result = integrate_yalex_pipeline("lexer.yal", use_minimization=True)
+        generate_lexer_code(pipeline_result, output_filename="thelexer.py")
+        print("=== Generación completada. Archivo 'thelexer.py' creado. ===")
+    except Exception as e:
+        print("Ocurrió un error durante la generación del lexer:", e)
+
 if __name__ == "__main__":
-    from yalex_pipeline import integrate_yalex_pipeline
-    pipeline_result = integrate_yalex_pipeline("lexer.yal", use_minimization=True)
-    generate_lexer_code(pipeline_result)
+    main()

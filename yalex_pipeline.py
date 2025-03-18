@@ -1,8 +1,10 @@
+# main_pipeline.py
+
 from yalex_parser import YALexParser
-# Importa el preprocessor manual en lugar del original
-from preprocessor import preprocess_expression_manual  
+# Importa el preprocessor manual corregido
+from preprocessor import preprocess_expression_manual
 from parser import parse_regex, to_postfix
-from symbol import Symbol
+from symbol import Symbol, SymbolType
 from arbolSINT import SyntaxTree
 from DFA import DFA
 from MinimizedDFA import MinimizedDFA
@@ -11,6 +13,7 @@ def normalize_token_regex(token_regex):
     """
     Convierte una definición en la forma "['a'-'z' 'A'-'Z' '_']" 
     a la notación estándar "[a-zA-Z_]" eliminando comillas y espacios.
+    (Opcional, depende de tus necesidades)
     """
     if token_regex.startswith("[") and token_regex.endswith("]"):
         inner = token_regex[1:-1]
@@ -21,16 +24,13 @@ def normalize_token_regex(token_regex):
 
 def recursive_expand(expr, tokens_definitions):
     """
-    Reemplaza recursivamente en expr cada ocurrencia de un nombre de token (clave en tokens_definitions)
-    por su definición. Se usa un simple while con str.replace, sin usar re.
+    Reemplaza recursivamente en expr cada ocurrencia de un nombre de token 
+    (clave en tokens_definitions) por su definición.
     """
     changed = True
-    # Repite hasta que no haya cambios
     while changed:
         changed = False
         for token_name, token_def in tokens_definitions.items():
-            # Si se encuentra el nombre del token en la expresión,
-            # se reemplaza por su definición
             new_expr = expr.replace(token_name, token_def)
             if new_expr != expr:
                 expr = new_expr
@@ -38,43 +38,72 @@ def recursive_expand(expr, tokens_definitions):
     return expr
 
 def tokenize_postfix(postfix_str):
-    tokens = postfix_str.split()
-    result = []
-    for token in tokens:
-        if token.startswith("lit(") and token.endswith(")"):
-            literal_char = token[4:-1]
-            result.append(Symbol(literal_char, "operand"))
-        elif token in {'*', '|', '·', '?', '+'}:
-            result.append(Symbol(token, "operator"))
+    """
+    Tokeniza la notación postfix respetando los literales delimitados por LIT<< ... >>.
+    Retorna una lista de objetos Symbol.
+    """
+    tokens = []
+    i = 0
+    n = len(postfix_str)
+    while i < n:
+        while i < n and postfix_str[i].isspace():
+            i += 1
+        if i >= n:
+            break
+        if postfix_str.startswith("LIT<<", i):
+            start = i
+            i += 6  # omitir "LIT<<"
+            literal_chars = []
+            while i < n and not postfix_str.startswith(">>", i):
+                literal_chars.append(postfix_str[i])
+                i += 1
+            if i >= n:
+                raise ValueError("No se encontró '>>' para token literal iniciado en la posición " + str(start))
+            i += 2  # consumir ">>"
+            literal_content = "".join(literal_chars)
+            literal_converted = bytes(literal_content, "utf-8").decode("unicode_escape")
+            tokens.append(Symbol(literal_converted, SymbolType.LITERAL))
         else:
-            result.append(Symbol(token, "operand"))
-    return result
+            ch = postfix_str[i]
+            if ch in {'*', '|', '·', '+', '?'}:
+                tokens.append(Symbol(ch, SymbolType.OPERATOR))
+            else:
+                tokens.append(Symbol(ch, SymbolType.LITERAL))
+            i += 1
+    return tokens
+
+
 
 def process_rule(rule_expr, tokens_definitions):
-    """
-    Procesa la cadena de la expresión regular extraída de la regla:
-      - Si la regla es un literal entre comillas, se le quitan las comillas.
-      - Si la regla es exactamente el nombre de un token definido, se reemplaza recursivamente por su definición.
-      - Si la regla contiene nombres de tokens, se sustituyen por sus definiciones.
-      - Luego se preprocesa, se parsea y se convierte a notación postfix.
-    Devuelve la lista de tokens.
-    """
     print("DEBUG: Regla original:", repr(rule_expr))
-    literal_tokens = {'+', '-', '*', '/', '%', '=', '==', '!=', '<', '<=', '>', '>=' , '(', ')', '{', '}', '[', ']'}
+
+    # 1) Si la expresión está completamente entrecomillada Y NO contiene espacios
+    # (es decir, es un único carácter o una secuencia sin espacios) se asume que es literal.
+    if rule_expr.startswith("'") and rule_expr.endswith("'") and (' ' not in rule_expr):
+        inner = rule_expr[1:-1]  # contenido entre comillas
+        # Si el usuario desea escapar el carácter, por ejemplo "'\\('" para literal "(",
+        # se detecta la barra invertida.
+        if rule_expr.startswith("'") and rule_expr.endswith("'") and (' ' not in rule_expr):
+            inner = rule_expr[1:-1]
+            if inner and inner[0] == '\\':
+                inner = inner[1:]
+                print(f"DEBUG: Se detectó escape, literal: {inner!r}")
+                rule_expr = f"LIT<<{inner}>>"
+                print(f"DEBUG: Literal operator convertido a: {rule_expr!r}")
+            elif len(inner) == 1:
+                print(f"DEBUG: Se quitaron las comillas: {inner!r}")
+                rule_expr = f"LIT<<{inner}>>"
+                print(f"DEBUG: Literal operator convertido a: {rule_expr!r}")
+            else:
+                print(f"DEBUG: Es una expresión compleja o literal extendido, se conservan comillas: {inner!r}")
+
+
     
-    # Si es un literal entre comillas, quita las comillas y, si es un operador o símbolo, lo formatea
-    if rule_expr.startswith("'") and rule_expr.endswith("'"):
-        rule_expr = rule_expr[1:-1]
-        print("DEBUG: Se quitaron las comillas:", repr(rule_expr))
-        if rule_expr in literal_tokens:
-            rule_expr = f"lit({rule_expr})"
-            print("DEBUG: Literal operator convertido a:", repr(rule_expr))
-    
-    # Si la regla es exactamente el nombre de un token definido, se expande recursivamente
+    # 2) Expansión recursiva: si rule_expr coincide exactamente con el nombre de un token, se expande
     if rule_expr.strip() in tokens_definitions:
         rule_expr = recursive_expand(tokens_definitions[rule_expr.strip()], tokens_definitions)
     else:
-        # Sino, se sustituyen todas las ocurrencias de tokens definidos en la regla
+        # O sustitución parcial: se reemplazan ocurrencias de nombres de tokens por sus definiciones
         for token_name, token_regex in tokens_definitions.items():
             if token_name in rule_expr:
                 expanded = recursive_expand(token_regex, tokens_definitions)
@@ -82,14 +111,14 @@ def process_rule(rule_expr, tokens_definitions):
                 rule_expr = rule_expr.replace(token_name, f"({expanded})")
     print("DEBUG: Regla tras sustitución:", repr(rule_expr))
     
-    # Si la regla ya está en formato lit(...), se procesa directamente
+    # 3) Si la regla ya quedó en formato lit(...), se procesa directamente
     if rule_expr.startswith("lit(") and rule_expr.endswith(")"):
         print("DEBUG: La regla es un literal ya formateado, se procesa directamente.")
         tokens = tokenize_postfix(rule_expr)
         print("DEBUG: Tokens obtenidos:", tokens)
         return tokens
     
-    # Se utiliza el nuevo preprocessor manual para mejorar el rendimiento con entradas grandes
+    # 4) Preprocesado manual, AST y conversión a postfix (resto sin cambios)
     preprocessed = preprocess_expression_manual(rule_expr)
     print("DEBUG: Preprocesada:", repr(preprocessed))
     
@@ -113,20 +142,20 @@ def process_rule(rule_expr, tokens_definitions):
 
 def integrate_yalex_pipeline(filename, use_minimization=False):
     """
-    Integra todo el pipeline a partir del archivo YALex.
-    Retorna un diccionario con:
-      - header y trailer del archivo YALex.
-      - tokens: definiciones de tokens.
-      - rules: para cada regla se construyen el DFA y, si se solicita, el DFA minimizado.
+    Integra todo el pipeline a partir del archivo YALex:
+     1) Parsear definiciones, tokens, reglas.
+     2) Para cada regla, obtener postfix y SyntaxTree.
+     3) Construir DFA (y minimizado opcional).
+    Devuelve un dict con header, trailer, tokens y rules (cada una con su DFA).
     """
     # 1. Leer la especificación YALex
     parser = YALexParser(filename)
     header = parser.get_header()
     trailer = parser.get_trailer()
     tokens_definitions = parser.get_tokens()
-    rules = parser.get_rules()  # Ej: {'gettoken': [(regex, action), ...]}
+    rules = parser.get_rules()  # dict con {rule_name: [(regex, action), ...]}
     
-    # 2. Procesar cada regla y construir el DFA (y DFA minimizado, opcional)
+    # 2. Procesar cada regla y construir el DFA
     dfa_dict = {}
     for rule_name, rule_list in rules.items():
         for (regex, action) in rule_list:
@@ -137,12 +166,18 @@ def integrate_yalex_pipeline(filename, use_minimization=False):
             except Exception as e:
                 print(f"DEBUG: Error procesando la regla {regex}: {e}")
                 raise
+            
+            # Construir el árbol sintáctico
             syntax_tree = SyntaxTree(tokens)
+            # Construir el DFA
             dfa = DFA(syntax_tree)
+            
+            # Minimizamos si se solicita
             if use_minimization:
                 min_dfa = MinimizedDFA(dfa)
             else:
                 min_dfa = None
+            
             dfa_dict.setdefault(rule_name, []).append({
                 "regex": regex,
                 "action": action,
@@ -157,24 +192,4 @@ def integrate_yalex_pipeline(filename, use_minimization=False):
         "rules": dfa_dict
     }
 
-if __name__ == "__main__":
-    # Configuración: Cambia a True si deseas generar y visualizar el DFA minimizado.
-    use_minimization = True
-    
-    pipeline_result = integrate_yalex_pipeline("lexer.yal", use_minimization)
-    
-    print("Header:")
-    print(pipeline_result["header"])
-    print("\nRules:")
-    for rule, dfa_list in pipeline_result["rules"].items():
-        print(f"Regla {rule}:")
-        for item in dfa_list:
-            print("  Regex:", item["regex"])
-            print("  Action:", item["action"])
-            print("  Visualizando DFA:")
-            item["dfa"].visualize(f"dfa_{rule}")
-            if item["min_dfa"] is not None:
-                print("  Visualizando DFA Minimized:")
-                item["min_dfa"].visualize(f"min_dfa_{rule}")
-    print("\nTrailer:")
-    print(pipeline_result["trailer"])
+
