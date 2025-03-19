@@ -1,6 +1,5 @@
 from thelexer import scan, get_token
 
-# Entrada de prueba compleja: combina estructuras de control, operaciones, bloques y comentarios.
 test_input = (
     "if (x + 10) {\r\n"
     "    // Esto es un comentario de linea\r\n"
@@ -13,9 +12,9 @@ test_input = (
     "while (count <= 100) { count = count + 1; }\r\n"
 )
 
-# -- AQUÍ normalizamos los saltos de línea Windows a Unix --
-test_input = test_input.replace("\r\n", "\n")  # si la entrada tenía CR+LF
-test_input = test_input.replace("\r", "")      # por si quedara algún CR solitario
+# Normalizar saltos de línea
+test_input = test_input.replace("\r\n", "\n")
+test_input = test_input.replace("\r", "")
 
 print("Analizando entrada completa:")
 print(test_input)

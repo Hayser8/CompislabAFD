@@ -15,428 +15,195 @@ keywords = {
 
 dfa_alternatives = [
     {
-        "regex": "whitespace+",
-        "action": "return \"WHITESPACE\"",
+        "regex": "(whitespace+)(?=#$return \"WHITESPACE\"$#)|(newline)(?=#$return \"NEWLINE\"$#)|(number)(?=#$return \"INTEGER\"$#)|(floatnum)(?=#$return \"FLOAT\"$#)|(identifier)(?=#$if lxm in keywords: return keywords[lxm] return \"IDENTIFIER\"$#)|('+')(?=#$return \"PLUS\"$#)|('-')(?=#$return \"MINUS\"$#)|('*')(?=#$return \"TIMES\"$#)|('/')(?=#$return \"DIV\"$#)|('%')(?=#$return \"MODULO\"$#)|('==')(?=#$return \"EQUAL\"$#)|('!=')(?=#$return \"NOT_EQUAL\"$#)|('<')(?=#$return \"LESS_THAN\"$#)|('<=')(?=#$return \"LESS_EQUAL\"$#)|('>')(?=#$return \"GREATER_THAN\"$#)|('>=')(?=#$return \"GREATER_EQUAL\"$#)|('=')(?=#$return \"ASSIGN\"$#)|(';')(?=#$return \"SEMICOLON\"$#)|(',')(?=#$return \"COMMA\"$#)|('(')(?=#$return \"LPAREN\"$#)|(')')(?=#$return \"RPAREN\"$#)|('{')(?=#$return \"LBRACE\"$#)|('}')(?=#$return \"RBRACE\"$#)|('[')(?=#$return \"LBRACKET\"$#)|(']')(?=#$return \"RBRACKET\"$#)|('//' [^\\n]* '\\n')(?=#$return \"COMMENT\"$#)|('/*' ( _ )* '*/')(?=#$return \"MULTILINE_COMMENT\"$#)|(eof)(?=#$raise(\"Fin de archivo\")$#)",
+        "action": "unified",
+        "alternatives": [
+            [
+                "whitespace+",
+                "return \"WHITESPACE\""
+            ],
+            [
+                "newline",
+                "return \"NEWLINE\""
+            ],
+            [
+                "number",
+                "return \"INTEGER\""
+            ],
+            [
+                "floatnum",
+                "return \"FLOAT\""
+            ],
+            [
+                "identifier",
+                "if lxm in keywords: return keywords[lxm] return \"IDENTIFIER\""
+            ],
+            [
+                "'+'",
+                "return \"PLUS\""
+            ],
+            [
+                "'-'",
+                "return \"MINUS\""
+            ],
+            [
+                "'*'",
+                "return \"TIMES\""
+            ],
+            [
+                "'/'",
+                "return \"DIV\""
+            ],
+            [
+                "'%'",
+                "return \"MODULO\""
+            ],
+            [
+                "'=='",
+                "return \"EQUAL\""
+            ],
+            [
+                "'!='",
+                "return \"NOT_EQUAL\""
+            ],
+            [
+                "'<'",
+                "return \"LESS_THAN\""
+            ],
+            [
+                "'<='",
+                "return \"LESS_EQUAL\""
+            ],
+            [
+                "'>'",
+                "return \"GREATER_THAN\""
+            ],
+            [
+                "'>='",
+                "return \"GREATER_EQUAL\""
+            ],
+            [
+                "'='",
+                "return \"ASSIGN\""
+            ],
+            [
+                "';'",
+                "return \"SEMICOLON\""
+            ],
+            [
+                "','",
+                "return \"COMMA\""
+            ],
+            [
+                "'('",
+                "return \"LPAREN\""
+            ],
+            [
+                "')'",
+                "return \"RPAREN\""
+            ],
+            [
+                "'{'",
+                "return \"LBRACE\""
+            ],
+            [
+                "'}'",
+                "return \"RBRACE\""
+            ],
+            [
+                "'['",
+                "return \"LBRACKET\""
+            ],
+            [
+                "']'",
+                "return \"RBRACKET\""
+            ],
+            [
+                "'//' [^\\n]* '\\n'",
+                "return \"COMMENT\""
+            ],
+            [
+                "'/*' ( _ )* '*/'",
+                "return \"MULTILINE_COMMENT\""
+            ],
+            [
+                "eof",
+                "raise(\"Fin de archivo\")"
+            ]
+        ],
         "dfa_transitions": {
-            "frozenset({frozenset({2, 3})})": {
-                ":(\t|\r| )": "frozenset({frozenset({2, 3})})"
+            "frozenset({frozenset({8, 44, 5, 7})})": {
+                ":.": "frozenset({frozenset({9})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({8, 44, 5, 7})})"
             },
-            "frozenset({frozenset({1})})": {
-                ":(\t|\r| )": "frozenset({frozenset({2, 3})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2, 3})})"
-        ]
-    },
-    {
-        "regex": "newline",
-        "action": "return \"NEWLINE\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":\n": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "number",
-        "action": "return \"INTEGER\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2, 3})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({2, 3})})"
+            "frozenset({frozenset({12, 13, 44})})": {
+                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({12, 13, 44})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({12, 13, 44})})"
             },
-            "frozenset({frozenset({1})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({2, 3})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2, 3})})"
-        ]
-    },
-    {
-        "regex": "floatnum",
-        "action": "return \"FLOAT\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({5, 6})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({5, 6})})"
+            "frozenset({frozenset({10, 44})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({10, 44})})"
             },
-            "frozenset({frozenset({2, 3})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({2, 3})})",
-                ":.": "frozenset({frozenset({4})})"
+            "frozenset({frozenset({2, 44})})": {
+                ":(\t|\r| )": "frozenset({frozenset({2, 44})})"
             },
-            "frozenset({frozenset({1})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({2, 3})})"
+            "frozenset({frozenset({44})})": {},
+            "frozenset({frozenset({1, 3, 4, 6, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 38, 41})})": {
+                ":(\t|\r| )": "frozenset({frozenset({2, 44})})",
+                ":\n": "frozenset({frozenset({44})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({8, 44, 5, 7})})",
+                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({12, 13, 44})})",
+                ":+": "frozenset({frozenset({44})})",
+                ":-": "frozenset({frozenset({44})})",
+                ":*": "frozenset({frozenset({44})})",
+                ":/": "frozenset({frozenset({44})})",
+                ":%": "frozenset({frozenset({44})})",
+                ":==": "frozenset({frozenset({44})})",
+                ":!=": "frozenset({frozenset({44})})",
+                ":<": "frozenset({frozenset({44})})",
+                ":<=": "frozenset({frozenset({44})})",
+                ":": "frozenset({frozenset({24})})",
+                ":>=": "frozenset({frozenset({44})})",
+                ":=": "frozenset({frozenset({44})})",
+                ":;": "frozenset({frozenset({44})})",
+                ":,": "frozenset({frozenset({44})})",
+                ":(": "frozenset({frozenset({44})})",
+                ":)": "frozenset({frozenset({44})})",
+                ":{": "frozenset({frozenset({44})})",
+                ":}": "frozenset({frozenset({44})})",
+                ":[": "frozenset({frozenset({44})})",
+                ":]": "frozenset({frozenset({44})})",
+                "://": "frozenset({frozenset({36, 37})})",
+                ":/*": "frozenset({frozenset({40, 39})})",
+                "e": "frozenset({frozenset({42})})"
             },
-            "frozenset({frozenset({4})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({5, 6})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({5, 6})})"
-        ]
-    },
-    {
-        "regex": "identifier",
-        "action": "if lxm in keywords: return keywords[lxm] return \"IDENTIFIER\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2, 3, 4})})": {
-                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({2, 3, 4})})",
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({2, 3, 4})})"
+            "frozenset({frozenset({36, 37})})": {
+                "98:(\t|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({36, 37})})",
+                ":\n": "frozenset({frozenset({44})})"
             },
-            "frozenset({frozenset({1})})": {
-                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({2, 3, 4})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2, 3, 4})})"
-        ]
-    },
-    {
-        "regex": "'+'",
-        "action": "return \"PLUS\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":+": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'-'",
-        "action": "return \"MINUS\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":-": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'*'",
-        "action": "return \"TIMES\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":*": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'/'",
-        "action": "return \"DIV\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":/": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'%'",
-        "action": "return \"MODULO\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":%": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'=='",
-        "action": "return \"EQUAL\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":==": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'!='",
-        "action": "return \"NOT_EQUAL\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":!=": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'<'",
-        "action": "return \"LESS_THAN\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":<": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'<='",
-        "action": "return \"LESS_EQUAL\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":<=": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'>'",
-        "action": "return \"GREATER_THAN\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({3})})": {},
-            "frozenset({frozenset({1})})": {
-                ":": "frozenset({frozenset({2})})"
+            "frozenset({frozenset({42})})": {
+                "o": "frozenset({frozenset({43})})"
             },
-            "frozenset({frozenset({2})})": {
-                ">": "frozenset({frozenset({3})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({3})})"
-        ]
-    },
-    {
-        "regex": "'>='",
-        "action": "return \"GREATER_EQUAL\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":>=": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'='",
-        "action": "return \"ASSIGN\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":=": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "';'",
-        "action": "return \"SEMICOLON\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":;": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "','",
-        "action": "return \"COMMA\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":,": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'('",
-        "action": "return \"LPAREN\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":(": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "')'",
-        "action": "return \"RPAREN\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":)": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'{'",
-        "action": "return \"LBRACE\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":{": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'}'",
-        "action": "return \"RBRACE\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":}": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'['",
-        "action": "return \"LBRACKET\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":[": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "']'",
-        "action": "return \"RBRACKET\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({2})})": {},
-            "frozenset({frozenset({1})})": {
-                ":]": "frozenset({frozenset({2})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({2})})"
-        ]
-    },
-    {
-        "regex": "'//' [^\\n]* '\\n'",
-        "action": "return \"COMMENT\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({4})})": {},
-            "frozenset({frozenset({1})})": {
-                "://": "frozenset({frozenset({2, 3})})"
+            "frozenset({frozenset({40, 39})})": {
+                ":*/": "frozenset({frozenset({44})})",
+                "_": "frozenset({frozenset({40, 39})})"
             },
-            "frozenset({frozenset({2, 3})})": {
-                "98:(\t|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({2, 3})})",
-                ":\n": "frozenset({frozenset({4})})"
+            "frozenset({frozenset({24})})": {
+                ">": "frozenset({frozenset({44})})"
+            },
+            "frozenset({frozenset({9})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({10, 44})})"
+            },
+            "frozenset({frozenset({43})})": {
+                "f": "frozenset({frozenset({44})})"
             }
         },
-        "dfa_start": "frozenset({frozenset({1})})",
+        "dfa_start": "frozenset({frozenset({1, 3, 4, 6, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 38, 41})})",
         "dfa_final": [
-            "frozenset({frozenset({4})})"
-        ]
-    },
-    {
-        "regex": "'/*' ( _ )* '*/'",
-        "action": "return \"MULTILINE_COMMENT\"",
-        "dfa_transitions": {
-            "frozenset({frozenset({4})})": {},
-            "frozenset({frozenset({1})})": {
-                ":/*": "frozenset({frozenset({2, 3})})"
-            },
-            "frozenset({frozenset({2, 3})})": {
-                "_": "frozenset({frozenset({2, 3})})",
-                ":*/": "frozenset({frozenset({4})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({4})})"
-        ]
-    },
-    {
-        "regex": "eof",
-        "action": "raise(\"Fin de archivo\")",
-        "dfa_transitions": {
-            "frozenset({frozenset({4})})": {},
-            "frozenset({frozenset({2})})": {
-                "o": "frozenset({frozenset({3})})"
-            },
-            "frozenset({frozenset({1})})": {
-                "e": "frozenset({frozenset({2})})"
-            },
-            "frozenset({frozenset({3})})": {
-                "f": "frozenset({frozenset({4})})"
-            }
-        },
-        "dfa_start": "frozenset({frozenset({1})})",
-        "dfa_final": [
-            "frozenset({frozenset({4})})"
+            "frozenset({frozenset({2, 44})})",
+            "frozenset({frozenset({44})})",
+            "frozenset({frozenset({12, 13, 44})})",
+            "frozenset({frozenset({10, 44})})",
+            "frozenset({frozenset({8, 44, 5, 7})})"
         ]
     }
 ]
@@ -532,6 +299,55 @@ def get_token(input_string):
             best_token = token
             best_action = dfa['action']
             best_length = length
+
+    if best_token is None or best_length == 0:
+        return None, None, 0
+
+    # Si la acción es 'unified', se descifra la acción real mediante heurísticas (sin usar re):
+    if best_action == "unified":
+        # Primero, si el token es espacio o salto de línea
+        if best_token.isspace():
+            if "\n" in best_token:
+                best_action = "NEWLINE"
+            else:
+                best_action = "WHITESPACE"
+        # Si es una palabra clave (la tabla keywords se define en el header)
+        elif best_token in keywords:
+            best_action = keywords[best_token]
+        # Si comienza con letra o '_' se asume IDENTIFIER
+        elif best_token and (best_token[0].isalpha() or best_token[0] == '_'):
+            best_action = "IDENTIFIER"
+        # Si el token es numérico: revisar si es entero o flotante
+        elif best_token.isdigit():
+            best_action = "INTEGER"
+        elif best_token.count('.') == 1 and best_token.replace('.', '').isdigit():
+            best_action = "FLOAT"
+        else:
+            # Para operadores y símbolos simples
+            mapping = {
+                '+': "PLUS",
+                '-': "MINUS",
+                '*': "TIMES",
+                '/': "DIV",
+                '%': "MODULO",
+                '==': "EQUAL",
+                '!=': "NOT_EQUAL",
+                '<': "LESS_THAN",
+                '<=': "LESS_EQUAL",
+                '>': "GREATER_THAN",
+                '>=': "GREATER_EQUAL",
+                '=': "ASSIGN",
+                ';': "SEMICOLON",
+                ',': "COMMA",
+                '(': "LPAREN",
+                ')': "RPAREN",
+                '{': "LBRACE",
+                '}': "RBRACE",
+                '[': "LBRACKET",
+                ']': "RBRACKET"
+            }
+            best_action = mapping.get(best_token, "UNKNOWN")
+
     return best_token, best_action, best_length
 
 def scan(input_string):

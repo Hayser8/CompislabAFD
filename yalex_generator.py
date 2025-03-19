@@ -23,7 +23,7 @@ def clean_block(block):
         cleaned += "\n" + "}" * (open_braces - close_braces)
     return cleaned
 
-def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
+def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
     """
     Genera el código fuente del analizador léxico a partir del pipeline_result.
     Se incluye:
@@ -41,21 +41,26 @@ def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
         raise Exception("No se encontró la regla principal 'gettoken'")
     dfa_list = rules[main_rule]
 
+    # Construimos la lista de alternativas a partir del DFA minimizado unificado
     dfa_alternatives = []
     for entry in dfa_list:
         min_dfa = entry["min_dfa"]
+        # Se obtienen los estados de inicio y finales (convertidos a string)
         start_state = str(min_dfa.minimized_start)
         final_states = [str(s) for s in min_dfa.minimized_final]
         serializable_transitions = {}
+        # Serializamos las transiciones del DFA minimizado
         for state, trans in min_dfa.minimized_transitions.items():
             state_key = str(state)
             if state_key not in serializable_transitions:
                 serializable_transitions[state_key] = {}
             for symbol, target in trans.items():
                 serializable_transitions[state_key][symbol] = str(target)
+        # Se añade además la lista de alternativas originales para poder descifrar la acción
         dfa_alternatives.append({
             "regex": entry["regex"],
-            "action": entry["action"],
+            "action": entry["action"],  # se usa "unified" en el DFA unificado
+            "alternatives": entry.get("alternatives", []),
             "dfa_transitions": serializable_transitions,
             "dfa_start": start_state,
             "dfa_final": final_states
@@ -63,6 +68,7 @@ def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
 
     dfa_alternatives_json = json.dumps(dfa_alternatives, indent=4)
 
+    # Funciones del lexer que se incluirán en el archivo generado
     lexer_functions = (
         "def decode_robust_key(key):\n"
         "    \"\"\"\n"
@@ -150,6 +156,55 @@ def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
         "            best_token = token\n"
         "            best_action = dfa['action']\n"
         "            best_length = length\n"
+        "\n"
+        "    if best_token is None or best_length == 0:\n"
+        "        return None, None, 0\n"
+        "\n"
+        "    # Si la acción es 'unified', se descifra la acción real mediante heurísticas (sin usar re):\n"
+        "    if best_action == \"unified\":\n"
+        "        # Primero, si el token es espacio o salto de línea\n"
+        "        if best_token.isspace():\n"
+        "            if \"\\n\" in best_token:\n"
+        "                best_action = \"NEWLINE\"\n"
+        "            else:\n"
+        "                best_action = \"WHITESPACE\"\n"
+        "        # Si es una palabra clave (la tabla keywords se define en el header)\n"
+        "        elif best_token in keywords:\n"
+        "            best_action = keywords[best_token]\n"
+        "        # Si comienza con letra o '_' se asume IDENTIFIER\n"
+        "        elif best_token and (best_token[0].isalpha() or best_token[0] == '_'):\n"
+        "            best_action = \"IDENTIFIER\"\n"
+        "        # Si el token es numérico: revisar si es entero o flotante\n"
+        "        elif best_token.isdigit():\n"
+        "            best_action = \"INTEGER\"\n"
+        "        elif best_token.count('.') == 1 and best_token.replace('.', '').isdigit():\n"
+        "            best_action = \"FLOAT\"\n"
+        "        else:\n"
+        "            # Para operadores y símbolos simples\n"
+        "            mapping = {\n"
+        "                '+': \"PLUS\",\n"
+        "                '-': \"MINUS\",\n"
+        "                '*': \"TIMES\",\n"
+        "                '/': \"DIV\",\n"
+        "                '%': \"MODULO\",\n"
+        "                '==': \"EQUAL\",\n"
+        "                '!=': \"NOT_EQUAL\",\n"
+        "                '<': \"LESS_THAN\",\n"
+        "                '<=': \"LESS_EQUAL\",\n"
+        "                '>': \"GREATER_THAN\",\n"
+        "                '>=': \"GREATER_EQUAL\",\n"
+        "                '=': \"ASSIGN\",\n"
+        "                ';': \"SEMICOLON\",\n"
+        "                ',': \"COMMA\",\n"
+        "                '(': \"LPAREN\",\n"
+        "                ')': \"RPAREN\",\n"
+        "                '{': \"LBRACE\",\n"
+        "                '}': \"RBRACE\",\n"
+        "                '[': \"LBRACKET\",\n"
+        "                ']': \"RBRACKET\"\n"
+        "            }\n"
+        "            best_action = mapping.get(best_token, \"UNKNOWN\")\n"
+        "\n"
         "    return best_token, best_action, best_length\n\n"
         "def scan(input_string):\n"
         "    tokens = []\n"
@@ -157,9 +212,11 @@ def generate_lexer_code(pipeline_result, output_filename="thelexer.py"):
         "    while pos < len(input_string):\n"
         "        token, action, advance = get_token(input_string[pos:])\n"
         "        if token is None or advance == 0:\n"
-        "            raise Exception('Error léxico en: ' + input_string[pos:])\n\n"
+        "            raise Exception('Error léxico en: ' + input_string[pos:])\n"
+        "\n"
         "        if action not in ('WHITESPACE', 'NEWLINE'):\n"
-        "            tokens.append((token, action))\n\n"
+        "            tokens.append((token, action))\n"
+        "\n"
         "        pos += advance\n"
         "    return tokens\n"
     )
@@ -187,7 +244,7 @@ def main():
     print("=== Iniciando generación de analizador léxico con YALex ===")
     try:
         pipeline_result = integrate_yalex_pipeline("lexer.yal", use_minimization=True)
-        generate_lexer_code(pipeline_result, output_filename="thelexer.py")
+        generate_lexer_code(pipeline_result, output_filename="lexeitor.py")
         print("=== Generación completada. Archivo 'thelexer.py' creado. ===")
     except Exception as e:
         print("Ocurrió un error durante la generación del lexer:", e)

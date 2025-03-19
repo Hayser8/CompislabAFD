@@ -4,7 +4,6 @@ class SymbolType(Enum):
     LITERAL = 1
     OPERATOR = 2
     EPSILON = 3
-    # Agrega otros tipos si es necesario
 
 class Symbol:
     def __init__(self, value, symbol_type: SymbolType):

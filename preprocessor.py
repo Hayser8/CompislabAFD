@@ -1,4 +1,3 @@
-import re
 from functools import lru_cache
 from symbol import Symbol, SymbolType
 
@@ -236,8 +235,7 @@ def parse_expr(expr, i, end, closing=None):
         i += 1
 
     return "".join(result), i
-
-
+a = "()"
 
 def preprocess_expression_manual(expression):
     expr = expression.replace("\n", "\n")
