@@ -37,6 +37,8 @@ rule gettoken =
           return keywords[lxm]
       return "IDENTIFIER"
     }
+  | ('/*' ([^*] | '*' [^/])* '*' '/') { return "MULTILINE_COMMENT" }
+  | '//' [^\n]* '\n'  { return "COMMENT" }
   | '+'           { return "PLUS" }          (* Operador suma *)
   | '-'           { return "MINUS" }         (* Operador resta *)
   | '*'           { return "TIMES" }         (* Operador multiplicación *)
@@ -57,8 +59,6 @@ rule gettoken =
   | '}'           { return "RBRACE" }        (* Llave derecha *)
   | '['           { return "LBRACKET" }      (* Corchete izquierdo *)
   | ']'           { return "RBRACKET" }      (* Corchete derecho *)
-  | '//' [^\n]* '\n'  { return "COMMENT" }           (* Comentario de línea *)
-  | '/*' ( _ )* '*/'   { return "MULTILINE_COMMENT" } (* Comentario de bloque *)
   | eof { raise("Fin de archivo") }          (* Manejo del final del archivo *)
 
 {
