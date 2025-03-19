@@ -1,5 +1,6 @@
 from functools import lru_cache
 from symbol import Symbol, SymbolType
+import re
 
 # Definimos un alfabeto completo usando caracteres reales.
 # Se incluyen los caracteres ASCII imprimibles y los especiales de escape.
@@ -85,7 +86,6 @@ def parse_expr(expr, i, end, closing=None):
             continue
 
         # Literales entre comillas simples
-        # En parse_expr, para literales entre comillas:
         if c == "'":
             j = expr.find("'", i+1)
             if j == -1:
@@ -109,12 +109,11 @@ def parse_expr(expr, i, end, closing=None):
             result.append(token)
             continue
 
-        # En la rama que procesa clases de caracteres [ ... ]
+        # Procesamiento de clases de caracteres [ ... ]
         if c == '[':
             j = expr.find(']', i+1)
             if j == -1:
-                result.append(c)
-                i += 1
+                raise ValueError("No se encontró ']' para clase de caracteres iniciada en la posición " + str(i))
             else:
                 content = expr[i+1:j]
                 expanded = expand_charclass_cached(content)
@@ -137,7 +136,6 @@ def parse_expr(expr, i, end, closing=None):
                 print(f"DEBUG: parse_expr - clase de caracteres [{content!r}] expandida a: {expanded!r}")
             continue
 
-
         # Secuencias con backslash
         if c == '\\':
             if i + 1 < end:
@@ -146,34 +144,6 @@ def parse_expr(expr, i, end, closing=None):
             else:
                 result.append('\\')
                 i += 1
-            continue
-
-        # Clase de caracteres [ ... ]
-        if c == '[':
-            j = expr.find(']', i+1)
-            if j == -1:
-                result.append(c)
-                i += 1
-            else:
-                content = expr[i+1:j]
-                expanded = expand_charclass_cached(content)
-                i = j+1
-                if i < end and expr[i] in ('+', '?', '*'):
-                    op = expr[i]
-                    # Envolver la expansión completa en LIT<…>
-                    literal = f"LIT<{expanded}>"
-                    if op == '+':
-                        literal = f"({literal}·{literal}*)"
-                    elif op == '?':
-                        literal = f"({literal}|ε)"
-                    else:  # '*'
-                        literal = literal + "*"
-                    print(f"DEBUG: parse_expr - cuantificador '{op}' aplicado a clase: {literal!r}")
-                    i += 1
-                    result.append(literal)
-                else:
-                    result.append(f"LIT<{expanded}>")
-                print(f"DEBUG: parse_expr - clase de caracteres [{content!r}] expandida a: {expanded!r}")
             continue
 
         # Grupo con paréntesis
@@ -234,14 +204,22 @@ def parse_expr(expr, i, end, closing=None):
         result.append(c)
         i += 1
 
+    # Si se esperaba un cierre pero se llegó al final, lanzamos un error.
+    if closing is not None:
+        raise ValueError(f"No se encontró el carácter de cierre {closing} en la expresión")
     return "".join(result), i
-a = "()"
 
 def preprocess_expression_manual(expression):
     expr = expression.replace("\n", "\n")
-    processed, _ = parse_expr(expr, 0, len(expr))
-    # Ya que el AST y to_postfix se encargan de la concatenación,
-    # no es necesario insertar operadores extra con regex.
+    processed, pos = parse_expr(expr, 0, len(expr))
+    if pos != len(expr):
+        raise ValueError("No se consumió toda la expresión")
+    # Si el resultado está compuesto únicamente por tokens LIT<<…>>,
+    # se reensambla en un único literal. Si hay otros operadores o símbolos,
+    # se deja intacto.
+    if re.fullmatch(r"(LIT<<[^<>]*>>)+", processed):
+        tokens = re.findall(r"LIT<<([^<>]*)>>", processed)
+        processed = "LIT<<" + "".join(tokens) + ">>"
     return processed
 
 def tokenize_postfix(postfix_str):
@@ -284,14 +262,19 @@ def tokenize_postfix(postfix_str):
             i += 1
     return tokens
 
-
 if __name__ == "__main__":
     # Prueba con las reglas de comentarios
     test_expr_line = "'//' [^\\n]* '\\n'"
     test_expr_block = "'/*' ( _ )* '*/'"
-    preprocessed_line = preprocess_expression_manual(test_expr_line)
-    preprocessed_block = preprocess_expression_manual(test_expr_block)
-    print("Expresión original (comentario línea):", test_expr_line)
-    print("Preprocesada (comentario línea):", preprocessed_line)
-    print("Expresión original (comentario bloque):", test_expr_block)
-    print("Preprocesada (comentario bloque):", preprocessed_block)
+    try:
+        preprocessed_line = preprocess_expression_manual(test_expr_line)
+        print("Expresión original (comentario línea):", test_expr_line)
+        print("Preprocesada (comentario línea):", preprocessed_line)
+    except Exception as e:
+        print("Error procesando comentario línea:", e)
+    try:
+        preprocessed_block = preprocess_expression_manual(test_expr_block)
+        print("Expresión original (comentario bloque):", test_expr_block)
+        print("Preprocesada (comentario bloque):", preprocessed_block)
+    except Exception as e:
+        print("Error procesando comentario bloque:", e)
