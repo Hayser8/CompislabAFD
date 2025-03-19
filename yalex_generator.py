@@ -87,7 +87,6 @@ def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
         "    while i < len(key) and key[i].isdigit():\n"
         "        i += 1\n"
         "    if i > 0 and i < len(key) and key[i] == ':':\n"
-        "        # Caso completo: se espera que tras ':' haya '(' y que termine en ')'\n"
         "        if i+1 < len(key) and key[i+1] == '(' and key[-1] == ')':\n"
         "            length_val = 0\n"
         "            for j in range(i):\n"
@@ -96,7 +95,6 @@ def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
         "            alt_list = alternatives_str.split('|')\n"
         "            return True, length_val, set(alt_list)\n"
         "        else:\n"
-        "            # Si no se encuentran los paréntesis, se asume literal de longitud 1\n"
         "            return True, 1, set([key[i+1:]])\n"
         "    if key.startswith(\":\"):\n"
         "        content = key[1:]\n"
@@ -146,7 +144,23 @@ def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
         "    \"\"\"\n"
         "    Recorre todas las alternativas de DFA y retorna el token (y su acción) que tenga el mayor avance.\n"
         "    Si ninguna alternativa reconoce un token, retorna (None, None, 0).\n"
+        "    Antes de simular el DFA se verifica manualmente si la entrada comienza con un comentario.\n"
         "    \"\"\"\n"
+        "    # Verificar comentarios de bloque manualmente:\n"
+        "    if input_string.startswith(\"/*\"):\n"
+        "        end_idx = input_string.find(\"*/\")\n"
+        "        if end_idx == -1:\n"
+        "            raise Exception(\"Comentario de bloque sin cerrar\")\n"
+        "        token = input_string[:end_idx+2]  # incluir \"*/\"\n"
+        "        return token, \"MULTILINE_COMMENT\", len(token)\n"
+        "    # Verificar comentarios de línea manualmente:\n"
+        "    if input_string.startswith(\"//\"):\n"
+        "        end_idx = input_string.find(\"\\n\")\n"
+        "        if end_idx == -1:\n"
+        "            end_idx = len(input_string)\n"
+        "        token = input_string[:end_idx+1]  # incluir el salto de línea\n"
+        "        return token, \"COMMENT\", len(token)\n"
+        "\n"
         "    best_token = None\n"
         "    best_action = None\n"
         "    best_length = 0\n"
@@ -160,27 +174,18 @@ def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
         "    if best_token is None or best_length == 0:\n"
         "        return None, None, 0\n"
         "\n"
-        "    # Si la acción es 'unified', se descifra la acción real mediante heurísticas (sin usar re):\n"
         "    if best_action == \"unified\":\n"
-        "        # Primero, si el token es espacio o salto de línea\n"
         "        if best_token.isspace():\n"
-        "            if \"\\n\" in best_token:\n"
-        "                best_action = \"NEWLINE\"\n"
-        "            else:\n"
-        "                best_action = \"WHITESPACE\"\n"
-        "        # Si es una palabra clave (la tabla keywords se define en el header)\n"
+        "            best_action = \"NEWLINE\" if \"\\n\" in best_token else \"WHITESPACE\"\n"
         "        elif best_token in keywords:\n"
         "            best_action = keywords[best_token]\n"
-        "        # Si comienza con letra o '_' se asume IDENTIFIER\n"
         "        elif best_token and (best_token[0].isalpha() or best_token[0] == '_'):\n"
         "            best_action = \"IDENTIFIER\"\n"
-        "        # Si el token es numérico: revisar si es entero o flotante\n"
         "        elif best_token.isdigit():\n"
         "            best_action = \"INTEGER\"\n"
         "        elif best_token.count('.') == 1 and best_token.replace('.', '').isdigit():\n"
         "            best_action = \"FLOAT\"\n"
         "        else:\n"
-        "            # Para operadores y símbolos simples\n"
         "            mapping = {\n"
         "                '+': \"PLUS\",\n"
         "                '-': \"MINUS\",\n"
@@ -213,14 +218,12 @@ def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
         "        token, action, advance = get_token(input_string[pos:])\n"
         "        if token is None or advance == 0:\n"
         "            raise Exception('Error léxico en: ' + input_string[pos:])\n"
-        "\n"
         "        if action not in ('WHITESPACE', 'NEWLINE'):\n"
         "            tokens.append((token, action))\n"
-        "\n"
         "        pos += advance\n"
         "    return tokens\n"
     )
-
+    
     code_parts = [
         header,
         "# --- DFA generados por YALex Generator (alternativas para \"gettoken\") ---",
@@ -229,12 +232,12 @@ def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
         "# --- Fin de la generación del analizador léxico ---",
         trailer
     ]
-
+    
     final_code = "\n\n".join(part for part in code_parts if part.strip())
-
+    
     with open(output_filename, "w", encoding="utf-8") as f:
         f.write(final_code)
-
+    
     print(f"El analizador léxico ha sido generado en {output_filename}")
 
 def main():
