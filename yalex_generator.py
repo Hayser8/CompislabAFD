@@ -175,7 +175,9 @@ def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
         "        return None, None, 0\n"
         "\n"
         "    if best_action == \"unified\":\n"
-        "        if best_token.isspace():\n"
+        "        if best_token.startswith('\"') and best_token.endswith('\"'):\n"
+        "            best_action = \"STRING\"\n"
+        "        elif best_token.isspace():\n"
         "            best_action = \"NEWLINE\" if \"\\n\" in best_token else \"WHITESPACE\"\n"
         "        elif best_token in keywords:\n"
         "            best_action = keywords[best_token]\n"
@@ -248,7 +250,7 @@ def main():
     try:
         pipeline_result = integrate_yalex_pipeline("lexer.yal", use_minimization=True)
         generate_lexer_code(pipeline_result, output_filename="lexeitor.py")
-        print("=== Generación completada. Archivo 'thelexer.py' creado. ===")
+        print("=== Generación completada. Archivo 'lexeitor.py' creado. ===")
     except Exception as e:
         print("Ocurrió un error durante la generación del lexer:", e)
 

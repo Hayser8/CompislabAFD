@@ -39,6 +39,7 @@ rule gettoken =
     }
   | ('/*' ([^*] | '*' [^/])* '*' '/') { return "MULTILINE_COMMENT" }
   | '//' [^\n]* '\n'  { return "COMMENT" }
+  | '"' ([^"\n] | '\\' .)* '"' { return "STRING" }
   | '+'           { return "PLUS" }          (* Operador suma *)
   | '-'           { return "MINUS" }         (* Operador resta *)
   | '*'           { return "TIMES" }         (* Operador multiplicación *)

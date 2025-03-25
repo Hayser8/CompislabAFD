@@ -15,7 +15,7 @@ keywords = {
 
 dfa_alternatives = [
     {
-        "regex": "(whitespace+)(?=#$return \"WHITESPACE\"$#)|(newline)(?=#$return \"NEWLINE\"$#)|(number)(?=#$return \"INTEGER\"$#)|(floatnum)(?=#$return \"FLOAT\"$#)|(identifier)(?=#$if lxm in keywords: return keywords[lxm] return \"IDENTIFIER\"$#)|(('/*' ([^*] | '*' [^/])* '*' '/'))(?=#$return \"MULTILINE_COMMENT\"$#)|('//' [^\\n]* '\\n')(?=#$return \"COMMENT\"$#)|('+')(?=#$return \"PLUS\"$#)|('-')(?=#$return \"MINUS\"$#)|('*')(?=#$return \"TIMES\"$#)|('/')(?=#$return \"DIV\"$#)|('%')(?=#$return \"MODULO\"$#)|('==')(?=#$return \"EQUAL\"$#)|('!=')(?=#$return \"NOT_EQUAL\"$#)|('<')(?=#$return \"LESS_THAN\"$#)|('<=')(?=#$return \"LESS_EQUAL\"$#)|('>')(?=#$return \"GREATER_THAN\"$#)|('>=')(?=#$return \"GREATER_EQUAL\"$#)|('=')(?=#$return \"ASSIGN\"$#)|(';')(?=#$return \"SEMICOLON\"$#)|(',')(?=#$return \"COMMA\"$#)|('(')(?=#$return \"LPAREN\"$#)|(')')(?=#$return \"RPAREN\"$#)|('{')(?=#$return \"LBRACE\"$#)|('}')(?=#$return \"RBRACE\"$#)|('[')(?=#$return \"LBRACKET\"$#)|(']')(?=#$return \"RBRACKET\"$#)|(eof)(?=#$raise(\"Fin de archivo\")$#)",
+        "regex": "(whitespace+)(?=#$return \"WHITESPACE\"$#)|(newline)(?=#$return \"NEWLINE\"$#)|(number)(?=#$return \"INTEGER\"$#)|(floatnum)(?=#$return \"FLOAT\"$#)|(identifier)(?=#$if lxm in keywords: return keywords[lxm] return \"IDENTIFIER\"$#)|(('/*' ([^*] | '*' [^/])* '*' '/'))(?=#$return \"MULTILINE_COMMENT\"$#)|('//' [^\\n]* '\\n')(?=#$return \"COMMENT\"$#)|('\"' ([^\"\\n] | '\\\\' .)* '\"')(?=#$return \"STRING\"$#)|('+')(?=#$return \"PLUS\"$#)|('-')(?=#$return \"MINUS\"$#)|('*')(?=#$return \"TIMES\"$#)|('/')(?=#$return \"DIV\"$#)|('%')(?=#$return \"MODULO\"$#)|('==')(?=#$return \"EQUAL\"$#)|('!=')(?=#$return \"NOT_EQUAL\"$#)|('<')(?=#$return \"LESS_THAN\"$#)|('<=')(?=#$return \"LESS_EQUAL\"$#)|('>')(?=#$return \"GREATER_THAN\"$#)|('>=')(?=#$return \"GREATER_EQUAL\"$#)|('=')(?=#$return \"ASSIGN\"$#)|(';')(?=#$return \"SEMICOLON\"$#)|(',')(?=#$return \"COMMA\"$#)|('(')(?=#$return \"LPAREN\"$#)|(')')(?=#$return \"RPAREN\"$#)|('{')(?=#$return \"LBRACE\"$#)|('}')(?=#$return \"RBRACE\"$#)|('[')(?=#$return \"LBRACKET\"$#)|(']')(?=#$return \"RBRACKET\"$#)|(eof)(?=#$raise(\"Fin de archivo\")$#)",
         "action": "unified",
         "alternatives": [
             [
@@ -45,6 +45,10 @@ dfa_alternatives = [
             [
                 "'//' [^\\n]* '\\n'",
                 "return \"COMMENT\""
+            ],
+            [
+                "'\"' ([^\"\\n] | '\\\\' .)* '\"'",
+                "return \"STRING\""
             ],
             [
                 "'+'",
@@ -132,82 +136,91 @@ dfa_alternatives = [
             ]
         ],
         "dfa_transitions": {
-            "frozenset({frozenset({8, 7, 5, 47})})": {
+            "frozenset({frozenset({8, 52, 5, 7})})": {
                 ":.": "frozenset({frozenset({9})})",
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({8, 7, 5, 47})})"
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({8, 52, 5, 7})})"
             },
-            "frozenset({frozenset({2, 47})})": {
-                ":(\t|\r| )": "frozenset({frozenset({2, 47})})"
+            "frozenset({frozenset({2, 52})})": {
+                ":(\t|\r| )": "frozenset({frozenset({2, 52})})"
             },
-            "frozenset({frozenset({12, 13, 47})})": {
-                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({12, 13, 47})})",
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({12, 13, 47})})"
+            "frozenset({frozenset({12, 13, 52})})": {
+                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({12, 13, 52})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({12, 13, 52})})"
             },
-            "frozenset({frozenset({10, 47})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({10, 47})})"
+            "frozenset({frozenset({10, 52})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({10, 52})})"
             },
-            "frozenset({frozenset({47})})": {},
-            "frozenset({frozenset({1, 3, 4, 6, 11, 14, 20, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44})})": {
-                ":(\t|\r| )": "frozenset({frozenset({2, 47})})",
-                ":\n": "frozenset({frozenset({47})})",
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({8, 7, 5, 47})})",
-                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({12, 13, 47})})",
+            "frozenset({frozenset({52})})": {},
+            "frozenset({frozenset({26})})": {
+                ".": "frozenset({frozenset({24, 25, 27})})"
+            },
+            "frozenset({frozenset({24, 25, 27})})": {
+                "96:(\t|\r| |!|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({24, 25, 27})})",
+                ":\\": "frozenset({frozenset({26})})",
+                ":\"": "frozenset({frozenset({52})})"
+            },
+            "frozenset({frozenset({21, 22})})": {
+                "98:(\t|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({21, 22})})",
+                ":\n": "frozenset({frozenset({52})})"
+            },
+            "frozenset({frozenset({1, 3, 4, 6, 11, 14, 20, 23, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49})})": {
+                ":(\t|\r| )": "frozenset({frozenset({2, 52})})",
+                ":\n": "frozenset({frozenset({52})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({8, 52, 5, 7})})",
+                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({12, 13, 52})})",
                 ":/*": "frozenset({frozenset({16, 18, 15})})",
                 "://": "frozenset({frozenset({21, 22})})",
-                ":+": "frozenset({frozenset({47})})",
-                ":-": "frozenset({frozenset({47})})",
-                ":*": "frozenset({frozenset({47})})",
-                ":/": "frozenset({frozenset({47})})",
-                ":%": "frozenset({frozenset({47})})",
-                ":==": "frozenset({frozenset({47})})",
-                ":!=": "frozenset({frozenset({47})})",
-                ":<": "frozenset({frozenset({47})})",
-                ":<=": "frozenset({frozenset({47})})",
-                ":": "frozenset({frozenset({33})})",
-                ":>=": "frozenset({frozenset({47})})",
-                ":=": "frozenset({frozenset({47})})",
-                ":;": "frozenset({frozenset({47})})",
-                ":,": "frozenset({frozenset({47})})",
-                ":(": "frozenset({frozenset({47})})",
-                ":)": "frozenset({frozenset({47})})",
-                ":{": "frozenset({frozenset({47})})",
-                ":}": "frozenset({frozenset({47})})",
-                ":[": "frozenset({frozenset({47})})",
-                ":]": "frozenset({frozenset({47})})",
-                "e": "frozenset({frozenset({45})})"
-            },
-            "frozenset({frozenset({17, 19})})": {
-                "99:(\t|\n|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({16, 18, 15})})",
-                ":/": "frozenset({frozenset({47})})"
+                ":\"": "frozenset({frozenset({24, 25, 27})})",
+                ":+": "frozenset({frozenset({52})})",
+                ":-": "frozenset({frozenset({52})})",
+                ":*": "frozenset({frozenset({52})})",
+                ":/": "frozenset({frozenset({52})})",
+                ":%": "frozenset({frozenset({52})})",
+                ":==": "frozenset({frozenset({52})})",
+                ":!=": "frozenset({frozenset({52})})",
+                ":<": "frozenset({frozenset({52})})",
+                ":<=": "frozenset({frozenset({52})})",
+                ":": "frozenset({frozenset({38})})",
+                ":>=": "frozenset({frozenset({52})})",
+                ":=": "frozenset({frozenset({52})})",
+                ":;": "frozenset({frozenset({52})})",
+                ":,": "frozenset({frozenset({52})})",
+                ":(": "frozenset({frozenset({52})})",
+                ":)": "frozenset({frozenset({52})})",
+                ":{": "frozenset({frozenset({52})})",
+                ":}": "frozenset({frozenset({52})})",
+                ":[": "frozenset({frozenset({52})})",
+                ":]": "frozenset({frozenset({52})})",
+                "e": "frozenset({frozenset({50})})"
             },
             "frozenset({frozenset({16, 18, 15})})": {
                 ":*": "frozenset({frozenset({17, 19})})",
                 "99:(\t|\n|\r| |!|\"|#|$|%|&|'|(|)|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({16, 18, 15})})"
             },
-            "frozenset({frozenset({21, 22})})": {
-                "98:(\t|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({21, 22})})",
-                ":\n": "frozenset({frozenset({47})})"
+            "frozenset({frozenset({50})})": {
+                "o": "frozenset({frozenset({51})})"
             },
-            "frozenset({frozenset({45})})": {
-                "o": "frozenset({frozenset({46})})"
+            "frozenset({frozenset({17, 19})})": {
+                "99:(\t|\n|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({16, 18, 15})})",
+                ":/": "frozenset({frozenset({52})})"
             },
-            "frozenset({frozenset({33})})": {
-                ">": "frozenset({frozenset({47})})"
+            "frozenset({frozenset({51})})": {
+                "f": "frozenset({frozenset({52})})"
             },
             "frozenset({frozenset({9})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({10, 47})})"
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({10, 52})})"
             },
-            "frozenset({frozenset({46})})": {
-                "f": "frozenset({frozenset({47})})"
+            "frozenset({frozenset({38})})": {
+                ">": "frozenset({frozenset({52})})"
             }
         },
-        "dfa_start": "frozenset({frozenset({1, 3, 4, 6, 11, 14, 20, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44})})",
+        "dfa_start": "frozenset({frozenset({1, 3, 4, 6, 11, 14, 20, 23, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49})})",
         "dfa_final": [
-            "frozenset({frozenset({8, 7, 5, 47})})",
-            "frozenset({frozenset({2, 47})})",
-            "frozenset({frozenset({12, 13, 47})})",
-            "frozenset({frozenset({10, 47})})",
-            "frozenset({frozenset({47})})"
+            "frozenset({frozenset({8, 52, 5, 7})})",
+            "frozenset({frozenset({12, 13, 52})})",
+            "frozenset({frozenset({2, 52})})",
+            "frozenset({frozenset({52})})",
+            "frozenset({frozenset({10, 52})})"
         ]
     }
 ]
@@ -322,7 +335,9 @@ def get_token(input_string):
         return None, None, 0
 
     if best_action == "unified":
-        if best_token.isspace():
+        if best_token.startswith('"') and best_token.endswith('"'):
+            best_action = "STRING"
+        elif best_token.isspace():
             best_action = "NEWLINE" if "\n" in best_token else "WHITESPACE"
         elif best_token in keywords:
             best_action = keywords[best_token]

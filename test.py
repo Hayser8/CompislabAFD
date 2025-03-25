@@ -2,12 +2,11 @@ import sys
 from lexeitor import scan, get_token
 
 
-archivo_entrada = "entrada.txt"
+archivo_entrada = "test5.txt"
 with open(archivo_entrada, "r", encoding="utf-8") as f:
     test_input = f.read()
 
 
-# Abrir y leer el contenido del archivo
 try:
     with open(archivo_entrada, "r", encoding="utf-8") as f:
         test_input = f.read()

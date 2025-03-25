@@ -193,7 +193,6 @@ def integrate_yalex_pipeline(filename, use_minimization=False):
 
 if __name__ == '__main__':
     # Ejemplo de invocación del pipeline con el archivo 'lexer.yal'
-    # Asegúrate de que exista un archivo 'lexer.yal' en el mismo directorio con la especificación correspondiente.
     try:
         pipeline_result = integrate_yalex_pipeline("lexer.yal", use_minimization=True)
         print("\n=== Pipeline ejecutado correctamente ===")
