@@ -1,20 +1,22 @@
+import sys
 from lexeitor import scan, get_token
 
-test_input = (
-    "if (x + 10) {\r\n"
-    "    // Esto es un comentario \\\\n de linea\r\n"
-    "    return x;\r\n"
-    "} else {\r\n"
-    "    /* Comentario de bloque\r\n"
-    "       que abarca varias lineas*/\r\n"
-    "    return 0;\r\n"
-    "}\r\n"
-    "while (count <= 100) { count = count + 1; }\r\n"
-)
+
+archivo_entrada = "entrada.txt"
+with open(archivo_entrada, "r", encoding="utf-8") as f:
+    test_input = f.read()
+
+
+# Abrir y leer el contenido del archivo
+try:
+    with open(archivo_entrada, "r", encoding="utf-8") as f:
+        test_input = f.read()
+except Exception as e:
+    print(f"Error al abrir el archivo {archivo_entrada}: {e}")
+    sys.exit(1)
 
 # Normalizar saltos de línea
-test_input = test_input.replace("\r\n", "\n")
-test_input = test_input.replace("\r", "")
+test_input = test_input.replace("\r\n", "\n").replace("\r", "")
 
 print("Analizando entrada completa:")
 print(test_input)
