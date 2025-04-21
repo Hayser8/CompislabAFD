@@ -71,124 +71,97 @@ def tokenize_postfix(postfix_str):
             i += 1
     return tokens
 
-def process_rule(rule_expr, tokens_definitions):
+def process_rule(rule_expr: str, tokens_definitions: dict[str,str]) -> list[Symbol]:
+    """
+    1) Expande referencias LET
+    2) Preprocesa con preprocess_expression_manual
+    3) parse_regex → AST
+    4) to_postfix → cadena postfix
+    5) tokenize_postfix → lista de Symbol
+    """
     print("DEBUG: Regla original:", repr(rule_expr))
-    
-    # Normalización y sustitución de tokens en la expresión
-    norm_tokens = {}
-    for token_name, token_def in tokens_definitions.items():
-        norm_tokens[token_name] = normalize_token_regex(token_def)
-    for token_name, token_regex in norm_tokens.items():
-        if token_name in rule_expr:
-            expanded = recursive_expand(token_regex, norm_tokens)
-            print(f"DEBUG: Se encontró token '{token_name}' en la regla; se sustituye por: {expanded}")
-            rule_expr = rule_expr.replace(token_name, f"({expanded})")
-    
-    print("DEBUG: Regla tras sustitución:", repr(rule_expr))
-    
-    # Eliminar construcciones lookahead (?= ... ) que no soporta el parser.
-    # Esta eliminación es segura porque la acción ya está asociada externamente.
-    rule_expr = re.sub(r'\(\?\=#.*?\$\#\)', '', rule_expr)
-    print("DEBUG: Regla sin lookahead:", repr(rule_expr))
-    
-    # Si la regla ya está en formato lit(...), se procesa directamente
-    if rule_expr.startswith("lit(") and rule_expr.endswith(")"):
-        print("DEBUG: La regla es un literal ya formateado, se procesa directamente.")
-        tokens = tokenize_postfix(rule_expr)
-        print("DEBUG: Tokens obtenidos:", tokens)
-        return tokens
 
-    # Preprocesado manual, generación de AST y conversión a notación postfix
-    preprocessed = preprocess_expression_manual(rule_expr)
-    print("DEBUG: Preprocesada:", repr(preprocessed))
-    
-    try:
-        ast = parse_regex(preprocessed)
-        print("DEBUG: AST generado:", ast)
-    except Exception as e:
-        print("DEBUG: Error al parsear (AST):", e)
-        raise
-    
-    try:
-        postfix = to_postfix(ast)
-        print("DEBUG: Postfix:", repr(postfix))
-    except Exception as e:
-        print("DEBUG: Error al convertir a postfix:", e)
-        raise
-    
-    tokens = tokenize_postfix(postfix)
-    print("DEBUG: Tokens obtenidos:", tokens)
-    return tokens
+    # 1) Expandir LET
+    norm = {k: normalize_token_regex(v) for k,v in tokens_definitions.items()}
+    for name, rex in norm.items():
+        if name in rule_expr:
+            exp = recursive_expand(rex, norm)
+            print(f"DEBUG: Sustituyendo {name} → {exp}")
+            rule_expr = rule_expr.replace(name, f"({exp})")
+    print("DEBUG: Tras LET:", repr(rule_expr))
 
-def integrate_yalex_pipeline(filename, use_minimization=False):
+    # 2) No tocamos lookahead marcadores
+
+    # 3) Preprocesar
+    pre = preprocess_expression_manual(rule_expr)
+    print("DEBUG: Preprocesada:", repr(pre))
+
+    # 4) AST
+    ast = parse_regex(pre)
+    print("DEBUG: AST generado:", ast)
+
+    # 5) Postfix
+    pf = to_postfix(ast)
+    print("DEBUG: Postfix:", repr(pf))
+
+    # 6) Tokenizar
+    toks = tokenize_postfix(pf)
+    print("DEBUG: Tokens:", toks)
+    return toks
+
+def integrate_yalex_pipeline(filename: str, use_minimization: bool=False) -> dict:
     """
-    Integra todo el pipeline a partir del archivo YALex:
-     1) Parsear definiciones, tokens, reglas.
-     2) Para la regla principal (por ejemplo, "gettoken"), unir todas las alternativas en
-        una única expresión regular.
-     3) Procesar la expresión unificada para obtener el árbol sintáctico, el DFA (y su versión
-        minimizada opcional).
-    Devuelve un dict con header, trailer, tokens y rules (con un único DFA para la regla principal).
+    Genera todo el pipeline a partir de un .yal:
+      - Parser YALex
+      - Regex unificada con LIT<<__EOF_i__>>
+      - process_rule → Symbols
+      - SyntaxTree + DFA(marker_map)
+      - (opcional) MinimizedDFA
+    Devuelve dict con header, trailer, tokens y rules{"gettoken":[{...}]}
     """
-    # 1. Leer la especificación YALex
+    # 1) Parseo YALex
     parser = YALexParser(filename)
     header = parser.get_header()
     trailer = parser.get_trailer()
-    tokens_definitions = parser.get_tokens()
-    rules = parser.get_rules()  # dict con {rule_name: [(regex, action), ...]}
+    tokens_def = parser.get_tokens()
+    rules = parser.get_rules()
 
-    main_rule = "gettoken"
-    if main_rule not in rules or len(rules[main_rule]) == 0:
-        raise Exception("No se encontró la regla principal 'gettoken'")
+    main = "gettoken"
+    alternatives = rules.get(main)
+    if not alternatives:
+        raise RuntimeError(f"No se encontró la regla '{main}'")
 
-    # 2. Unificar las alternativas de la regla principal
-    # Aquí se unen las expresiones con el operador '|' y se agrega un marcador de acción.
-    combined_parts = []
-    for (regex, action) in rules[main_rule]:
-        # Agregar marcador al final de cada alternativa.
-        marker = f"(?=#${action}$#)"
-        part = f"({regex}){marker}"
-        combined_parts.append(part)
+    # 2) Construir regex unificada con marcadores
+    marker_map: dict[str,str] = {}
+    parts: list[str] = []
+    for idx,(rex, action) in enumerate(alternatives, start=1):
+        mk = f"__EOF_{idx}__"
+        marker_map[mk] = action
+        parts.append(f"({rex})LIT<<{mk}>>")
+    combined_regex = "|".join(parts)
+    print("DEBUG: regex unificada:", repr(combined_regex))
 
-    # Se une con el operador de unión '|'
-    combined_regex = "|".join(combined_parts)
-    print("DEBUG: Expresión regular unificada para 'gettoken':", repr(combined_regex))
+    # 3) process_rule → lista de Symbol
+    symbols = process_rule(combined_regex, tokens_def)
 
-    # 3. Procesar la expresión unificada para obtener los tokens, AST y DFA
-    try:
-        tokens = process_rule(combined_regex, tokens_definitions)
-    except Exception as e:
-        print(f"DEBUG: Error procesando la expresión unificada {combined_regex}: {e}")
-        raise
+    # 4) SyntaxTree + DFA
+    tree = SyntaxTree(symbols)
+    dfa = DFA(tree, marker_map=marker_map)
+    min_dfa = MinimizedDFA(dfa) if use_minimization else None
 
-    # Construir el árbol sintáctico a partir de los tokens obtenidos
-    syntax_tree = SyntaxTree(tokens)
-    # Construir el DFA a partir del árbol sintáctico
-    dfa = DFA(syntax_tree)
-    
-    # Minimizamos si se solicita
-    if use_minimization:
-        min_dfa = MinimizedDFA(dfa)
-    else:
-        min_dfa = None
-
-    # Creamos un único registro para la regla principal
-    dfa_unified = {
+    record = {
         "regex": combined_regex,
-        "action": "unified",  # Indicamos que se usará descifrado en get_token
-        "alternatives": rules[main_rule],  # lista de (regex, action)
+        "alternatives": alternatives,   # ← lista [(regex, acción_original), …]
+        "action": "unified",            # ← etiqueta que usará generate_lexer_code
         "dfa": dfa,
         "min_dfa": min_dfa
     }
 
-    # Solo se procesa la regla principal de forma unificada.
-    dfa_dict = {main_rule: [dfa_unified]}
-
     return {
         "header": header,
         "trailer": trailer,
-        "tokens": tokens_definitions,
-        "rules": dfa_dict
+        "tokens": tokens_def,
+        "rules": { main: [record] }
     }
 
 if __name__ == '__main__':
