@@ -1,258 +1,283 @@
+# yalex_generator.py ─ genera «lexeitor.py» a partir de lexer.yal
 import json
+import sys
 from yalex_pipeline import integrate_yalex_pipeline
 
-def clean_block(block):
-    """
-    Limpia un bloque de texto (por ejemplo, header o trailer) de la siguiente manera:
-      1. Separa el bloque en líneas.
-      2. Si la primera línea es exactamente "{" se elimina.
-      3. Si la última línea es exactamente "}" se elimina.
-      4. Une las líneas restantes.
-      5. Cuenta las llaves de apertura y cierre en el contenido resultante; si faltan llaves de cierre,
-         las agrega al final.
-    """
+
+# ─────────────────────────── helpers ──────────────────────────────
+def _clean_block(block: str) -> str:
+    """Recorta llaves “{ … }” sobrantes de los bloques header/trailer."""
     lines = block.splitlines()
     if lines and lines[0].strip() == "{":
         lines = lines[1:]
     if lines and lines[-1].strip() == "}":
         lines = lines[:-1]
-    cleaned = "\n".join(lines).rstrip()
-    open_braces = cleaned.count("{")
-    close_braces = cleaned.count("}")
-    if open_braces > close_braces:
-        cleaned += "\n" + "}" * (open_braces - close_braces)
-    return cleaned
+    body = "\n".join(lines).rstrip()
+    diff = body.count("{") - body.count("}")
+    return body + ("\n" + "}" * diff if diff > 0 else "")
 
-def generate_lexer_code(pipeline_result, output_filename="lexeitor.py"):
-    """
-    Genera el código fuente del analizador léxico a partir del pipeline_result.
-    Se incluye:
-      - El header (limpio con clean_block).
-      - La definición de la lista de alternativas para "gettoken" (usando su DFA minimizado).
-      - Las funciones decode_robust_key, simulate_dfa, get_token y scan.
-      - El trailer (limpio con clean_block).
-    """
-    header = clean_block(pipeline_result["header"])
-    trailer = clean_block(pipeline_result["trailer"])
+
+# ──────────────────────── generador core ──────────────────────────
+def generate_lexer_code(pipeline_result, out_file: str = "lexeitor.py"):
+    header = _clean_block(pipeline_result["header"])
+    trailer = _clean_block(pipeline_result["trailer"])
     rules = pipeline_result["rules"]
 
-    main_rule = "gettoken"
-    if main_rule not in rules or len(rules[main_rule]) == 0:
-        raise Exception("No se encontró la regla principal 'gettoken'")
-    dfa_list = rules[main_rule]
+    if not rules.get("gettoken"):
+        raise KeyError("Regla principal «gettoken» no encontrada")
 
-    # Construimos la lista de alternativas a partir del DFA minimizado unificado
-    dfa_alternatives = []
-    for entry in dfa_list:
-        min_dfa = entry["min_dfa"]
-        # Se obtienen los estados de inicio y finales (convertidos a string)
-        start_state = str(min_dfa.minimized_start)
-        final_states = [str(s) for s in min_dfa.minimized_final]
-        serializable_transitions = {}
-        # Serializamos las transiciones del DFA minimizado
-        for state, trans in min_dfa.minimized_transitions.items():
-            state_key = str(state)
-            if state_key not in serializable_transitions:
-                serializable_transitions[state_key] = {}
-            for symbol, target in trans.items():
-                serializable_transitions[state_key][symbol] = str(target)
-        # Se añade además la lista de alternativas originales para poder descifrar la acción
-        dfa_alternatives.append({
+    dfa_alts = []
+    for ix, entry in enumerate(rules["gettoken"]):
+        if not isinstance(entry, dict):
+            raise TypeError(f"Entrada #{ix} no es dict")
+        for req in ("min_dfa", "action"):
+            if req not in entry:
+                raise KeyError(f"Entrada #{ix} sin clave «{req}»")
+
+        mdfa = entry["min_dfa"]
+        start = str(mdfa.minimized_start)
+        finals = {str(s) for s in mdfa.minimized_final}
+        st_actions = {str(st): act
+                      for st, act in getattr(mdfa, "state_actions", {}).items()}
+
+        trans = {}
+        for st, tbl in mdfa.minimized_transitions.items():
+            k = str(st)
+            for sym, tgt in tbl.items():
+                # ε‑transición final               ↓↓↓
+                if sym.startswith("0:__EOF_"):
+                    finals.add(k)
+                    if str(tgt) in st_actions and k not in st_actions:
+                        st_actions[k] = st_actions[str(tgt)]
+                    continue
+                if sym == ":":          # clave de longitud 0 → se descarta
+                    continue
+                trans.setdefault(k, {})[sym] = str(tgt)
+
+        dfa_alts.append({
             "regex": entry["regex"],
-            "action": entry["action"],  # se usa "unified" en el DFA unificado
+            "action": entry["action"],
             "alternatives": entry.get("alternatives", []),
-            "dfa_transitions": serializable_transitions,
-            "dfa_start": start_state,
-            "dfa_final": final_states
+            "dfa_transitions": trans,
+            "dfa_start": start,
+            "dfa_final": sorted(finals),
+            "state_actions": st_actions,
         })
 
-    dfa_alternatives_json = json.dumps(dfa_alternatives, indent=4)
+    json_alts = json.dumps(dfa_alts, indent=4)
 
-    # Funciones del lexer que se incluirán en el archivo generado
-    lexer_functions = (
-        "def decode_robust_key(key):\n"
-        "    \"\"\"\n"
-        "    Decodifica manualmente una clave robusta.\n"
-        "    Si la clave comienza con 'LIT<<' y termina con '>>', se remueven estos delimitadores.\n"
-        "    Luego, si la clave comienza con dígitos seguidos de ':', se extrae la longitud y se divide el contenido\n"
-        "    en alternativas usando '|' como separador. Si el contenido no termina en ')', se asume literal de longitud 1.\n"
-        "    Retorna (True, longitud, set(alternativas)) si se cumple; de lo contrario, (False, None, None).\n"
-        "    \"\"\"\n"
-        "    if not isinstance(key, str):\n"
-        "        key = str(key)\n"
-        "    if key.startswith(\"LIT<<\") and key.endswith(\">>\"):\n"
-        "        key = key[5:-2]\n"
-        "\n"
-        "    i = 0\n"
-        "    while i < len(key) and key[i].isdigit():\n"
-        "        i += 1\n"
-        "    if i > 0 and i < len(key) and key[i] == ':':\n"
-        "        if i+1 < len(key) and key[i+1] == '(' and key[-1] == ')':\n"
-        "            length_val = 0\n"
-        "            for j in range(i):\n"
-        "                length_val = length_val * 10 + (ord(key[j]) - ord('0'))\n"
-        "            alternatives_str = key[i+2:-1]\n"
-        "            alt_list = alternatives_str.split('|')\n"
-        "            return True, length_val, set(alt_list)\n"
-        "        else:\n"
-        "            return True, 1, set([key[i+1:]])\n"
-        "    if key.startswith(\":\"):\n"
-        "        content = key[1:]\n"
-        "        if content.startswith(\"(\") and content.endswith(\")\"):\n"
-        "            content = content[1:-1]\n"
-        "        if '|' in content:\n"
-        "            alt_list = content.split(\"|\")\n"
-        "            return True, 1, set(alt_list)\n"
-        "        else:\n"
-        "            return True, 1, set([content])\n"
-        "    return False, None, None\n\n"
-        "def simulate_dfa(dfa, input_string):\n"
-        "    state = dfa['dfa_start']\n"
-        "    token = ''\n"
-        "    pos = 0\n"
-        "    last_final_state = None\n"
-        "    last_final_pos = 0\n\n"
-        "    while pos < len(input_string):\n"
-        "        ch_real = input_string[pos]\n"
-        "        ch = ch_real\n\n"
-        "        state_trans = dfa['dfa_transitions'].get(str(state), {})\n"
-        "        found_transition = None\n"
-        "        for key, target in state_trans.items():\n"
-        "            robust, length_val, alt_set = decode_robust_key(key)\n"
-        "            if robust:\n"
-        "                if ch in alt_set:\n"
-        "                    found_transition = target\n"
-        "                    break\n"
-        "            else:\n"
-        "                if ch == key:\n"
-        "                    found_transition = target\n"
-        "                    break\n"
-        "        if found_transition is not None:\n"
-        "            state = found_transition\n"
-        "            token += ch_real\n"
-        "            pos += 1\n"
-        "            if state in dfa['dfa_final']:\n"
-        "                last_final_state = state\n"
-        "                last_final_pos = pos\n"
-        "        else:\n"
-        "            break\n\n"
-        "    if last_final_state is not None:\n"
-        "        return token, last_final_pos\n"
-        "    else:\n"
-        "        return None, 0\n\n"
-        "def get_token(input_string):\n"
-        "    \"\"\"\n"
-        "    Recorre todas las alternativas de DFA y retorna el token (y su acción) que tenga el mayor avance.\n"
-        "    Si ninguna alternativa reconoce un token, retorna (None, None, 0).\n"
-        "    Antes de simular el DFA se verifica manualmente si la entrada comienza con un comentario.\n"
-        "    \"\"\"\n"
-        "    # Verificar comentarios de bloque manualmente:\n"
-        "    if input_string.startswith(\"/*\"):\n"
-        "        end_idx = input_string.find(\"*/\")\n"
-        "        if end_idx == -1:\n"
-        "            raise Exception(\"Comentario de bloque sin cerrar\")\n"
-        "        token = input_string[:end_idx+2]  # incluir \"*/\"\n"
-        "        return token, \"MULTILINE_COMMENT\", len(token)\n"
-        "    # Verificar comentarios de línea manualmente:\n"
-        "    if input_string.startswith(\"//\"):\n"
-        "        end_idx = input_string.find(\"\\n\")\n"
-        "        if end_idx == -1:\n"
-        "            end_idx = len(input_string)\n"
-        "        token = input_string[:end_idx+1]  # incluir el salto de línea\n"
-        "        return token, \"COMMENT\", len(token)\n"
-        "\n"
-        "    best_token = None\n"
-        "    best_action = None\n"
-        "    best_length = 0\n"
-        "    for dfa in dfa_alternatives:\n"
-        "        token, length = simulate_dfa(dfa, input_string)\n"
-        "        if token is not None and length > best_length:\n"
-        "            best_token = token\n"
-        "            best_action = dfa['action']\n"
-        "            best_length = length\n"
-        "\n"
-        "    if best_token is None or best_length == 0:\n"
-        "        return None, None, 0\n"
-        "\n"
-        "    if best_action == \"unified\":\n"
-        "        if best_token.startswith('\"') and best_token.endswith('\"'):\n"
-        "            best_action = \"STRING\"\n"
-        "        elif best_token.isspace():\n"
-        "            best_action = \"NEWLINE\" if \"\\n\" in best_token else \"WHITESPACE\"\n"
-        "        elif best_token in keywords:\n"
-        "            best_action = keywords[best_token]\n"
-        "        elif best_token and (best_token[0].isalpha() or best_token[0] == '_'):\n"
-        "            best_action = \"IDENTIFIER\"\n"
-        "        elif best_token.isdigit():\n"
-        "            best_action = \"INTEGER\"\n"
-        "        elif best_token.count('.') == 1 and best_token.replace('.', '').isdigit():\n"
-        "            best_action = \"FLOAT\"\n"
-        "        else:\n"
-        "            mapping = {\n"
-        "                '+': \"PLUS\",\n"
-        "                '-': \"MINUS\",\n"
-        "                '*': \"TIMES\",\n"
-        "                '/': \"DIV\",\n"
-        "                '%': \"MODULO\",\n"
-        "                '==': \"EQUAL\",\n"
-        "                '!=': \"NOT_EQUAL\",\n"
-        "                '<': \"LESS_THAN\",\n"
-        "                '<=': \"LESS_EQUAL\",\n"
-        "                '>': \"GREATER_THAN\",\n"
-        "                '>=': \"GREATER_EQUAL\",\n"
-        "                '=': \"ASSIGN\",\n"
-        "                ';': \"SEMICOLON\",\n"
-        "                ',': \"COMMA\",\n"
-        "                '(': \"LPAREN\",\n"
-        "                ')': \"RPAREN\",\n"
-        "                '{': \"LBRACE\",\n"
-        "                '}': \"RBRACE\",\n"
-        "                '[': \"LBRACKET\",\n"
-        "                ']': \"RBRACKET\"\n"
-        "            }\n"
-        "            best_action = mapping.get(best_token, \"UNKNOWN\")\n"
-        "\n"
-        "    return best_token, best_action, best_length\n\n"
-        "def scan(input_string):\n"
-        "    tokens = []\n"
-        "    pos = 0\n"
-        "    while pos < len(input_string):\n"
-        "        token, action, advance = get_token(input_string[pos:])\n"
-        "        if token is None or advance == 0:\n"
-        "            raise Exception('Error léxico en: ' + input_string[pos:])\n"
-        "        if action not in ('WHITESPACE', 'NEWLINE'):\n"
-        "            tokens.append((token, action))\n"
-        "        pos += advance\n"
-        "    return tokens\n"
-    )
-    
-    code_parts = [
+    # ───────────── runtime que se incrusta en lexeitor.py ──────────
+    runtime = r'''
+import re, sys
+
+# ——————————— 1. clase de error propio ————————————
+class LexerError(Exception):
+    """Errores detectados durante el análisis léxico."""
+    def __init__(self, msg, line, col):
+        super().__init__(f"[LÉXICO] L{line}:C{col}: {msg}")
+        self.line, self.column = line, col
+
+
+# ——————————— 2. utilidades DFA / decode ————————————
+def decode_robust_key(key: str):
+    """Convierte las claves codificadas del DFA en (es_conjunto, long, charset)."""
+    if key.startswith("LIT<<") and key.endswith(">>"):
+        lit = key[5:-2];  return False, len(lit), {lit}
+    i = 0
+    while i < len(key) and key[i].isdigit():
+        i += 1
+    if i and i < len(key) and key[i] == ":":
+        body = key[i+1:]
+        if body.startswith("(") and body.endswith(")"):
+            return True, 1, set(body[1:-1].split("|"))
+        return True, int(key[:i]), {body}
+    if key.startswith(":"):
+        lit = key[1:]
+        if lit.startswith("(") and lit.endswith(")"):
+            return True, 1, set(lit[1:-1].split("|"))
+        return True, len(lit), {lit}
+    return False, len(key), {key}
+
+
+def simulate_dfa(dfa, text: str):
+    """Devuelve (lexema, long, estado_final) o (None,0,None) si no hay match."""
+    state, best, pos = dfa["dfa_start"], ("", 0, None), 0
+    while pos < len(text):
+        chunk = text[pos:]
+        matched = False
+        for sym, tgt in dfa["dfa_transitions"].get(state, {}).items():
+            is_set, ln, charset = decode_robust_key(sym)
+            if ln > len(chunk):
+                continue
+            probe = chunk[:ln]
+            if (probe in charset) if is_set else (probe == sym):
+                state, pos, matched = tgt, pos + ln, True
+                if state in dfa["dfa_final"]:
+                    best = (text[:pos], pos, state)
+                break
+        if not matched:
+            break
+    return best if best[1] else (None, 0, None)
+
+
+# ——————————— 3. tablas rápidas ————————————
+_token_map = {
+    "+": "PLUS",    "-": "MINUS",    "*": "TIMES",   "/": "DIV",   "%": "MODULO",
+    "==": "EQUAL",  "!=": "NOT_EQUAL",
+    "<": "LESS_THAN", "<=": "LESS_EQUAL",
+    ">": "GREATER_THAN", ">=": "GREATER_EQUAL",
+    "=": "ASSIGN",  ";": "SEMICOLON", ",": "COMMA",
+    "(": "LPAREN",  ")": "RPAREN",   "{": "LBRACE",  "}": "RBRACE",
+    "[": "LBRACKET", "]": "RBRACKET"
+}
+_num = re.compile(r"^[0-9]+$")
+_flt = re.compile(r"^[0-9]+\.[0-9]+$")
+_id  = re.compile(r"^[A-Za-z_][A-Za-z_0-9]*$")
+
+
+def _categorize(lxm: str):
+    if lxm in keywords:   return keywords[lxm]
+    if lxm in _token_map: return _token_map[lxm]
+    if _num.match(lxm):   return "INTEGER"
+    if _flt.match(lxm):   return "FLOAT"
+    if _id.match(lxm):    return "IDENTIFIER"
+    if lxm.startswith("//"): return "COMMENT"
+    if lxm.startswith("/*"): return "MULTILINE_COMMENT"
+    if lxm.startswith('"'):  return "STRING"
+    if lxm == "\n":          return "NEWLINE"
+    if all(c in " \t\r" for c in lxm): return "WHITESPACE"
+    return "UNKNOWN"
+
+
+# ——————————— 4. estado global de posición ————————————
+_cur_line, _cur_col = 1, 1   # columnas inician en 1
+
+
+# ——————————— 5. get_token con detección de errores ————————————
+def get_token(text: str):
+    global _cur_line, _cur_col
+
+    best_lx, best_ac, best_ln = None, None, 0
+
+    # 1. probar DFA
+    for dfa in dfa_alternatives:
+        lx, ln, st = simulate_dfa(dfa, text)
+        if ln > best_ln:
+            best_ln, best_lx = ln, lx
+            best_ac = dfa["state_actions"].get(str(st)) or dfa["action"]
+
+    # 2. fallbacks + detección manual de errores
+    two = text[:2]
+
+    # comentario de bloque
+    if text.startswith("/*"):
+        end = text.find("*/", 2)
+        if end != -1:
+            return text[:end+2], "MULTILINE_COMMENT", end+2
+        raise LexerError("Comentario de bloque sin cerrar", _cur_line, _cur_col)
+
+    # string
+    if text.startswith('"'):
+        i, escaped = 1, False
+        while i < len(text):
+            if not escaped and text[i] == '"':
+                return text[:i+1], "STRING", i+1
+            escaped = (not escaped and text[i] == '\\\\')
+            i += 1
+        raise LexerError("Cadena de caracteres sin comillas de cierre",
+                         _cur_line, _cur_col)
+
+    # operadores de dos caracteres
+    if two in _token_map and best_ln < 2:
+        return two, _token_map[two], 2
+
+    # tokens “simples” si DFA no ayudó
+    if best_ln == 0 and text:
+        ch = text[0]
+
+        if ch in _token_map:
+            return ch, _token_map[ch], 1
+
+        if ch.isalpha() or ch == "_":
+            j = 1
+            while j < len(text) and (text[j].isalnum() or text[j] == "_"):
+                j += 1
+            lx = text[:j]
+            return lx, keywords.get(lx, "IDENTIFIER"), j
+
+        if ch.isdigit():
+            i = 0
+            while i < len(text) and text[i].isdigit():
+                i += 1
+            if i < len(text) and text[i] == ".":
+                j = i + 1
+                while j < len(text) and text[j].isdigit():
+                    j += 1
+                if j > i + 1:
+                    return text[:j], "FLOAT", j
+            return text[:i], "INTEGER", i
+
+    # 3. interpretar la acción si era “unified”
+    if best_ac in (None, "unified", "ACCEPT") and best_lx is not None:
+        best_ac = _categorize(best_lx)
+
+    return best_lx, best_ac, best_ln
+
+
+# ——————————— 6. scan con actualización línea/col ————————————
+def scan(text: str):
+    global _cur_line, _cur_col
+    out, i = [], 0
+    SKIP = {"WHITESPACE", "NEWLINE", "COMMENT", "MULTILINE_COMMENT"}
+
+    while i < len(text):
+        lx, ac, ln = get_token(text[i:])
+
+        if ln == 0:
+            raise LexerError("Símbolo desconocido", _cur_line, _cur_col)
+
+        # actualizar contadores de posición
+        segmento = text[i:i+ln]
+        nl = segmento.count("\n")
+        if nl:
+            _cur_line += nl
+            _cur_col = 1 + len(segmento) - segmento.rfind("\n")
+        else:
+            _cur_col += ln
+
+        if ac not in SKIP:
+            out.append((lx, ac))
+
+        i += ln
+
+    return out
+'''
+
+    # ensamblar archivo destino
+    parts = [
         header,
-        "# --- DFA generados por YALex Generator (alternativas para \"gettoken\") ---",
-        f"dfa_alternatives = {dfa_alternatives_json}",
-        lexer_functions,
-        "# --- Fin de la generación del analizador léxico ---",
+        "# --- dfa_alternatives (autogenerado) --------------------------",
+        f"dfa_alternatives = {json_alts}",
+        "# --- runtime --------------------------------------------------",
+        runtime,
+        "# --- trailer --------------------------------------------------",
         trailer
     ]
-    
-    final_code = "\n\n".join(part for part in code_parts if part.strip())
-    
-    with open(output_filename, "w", encoding="utf-8") as f:
-        f.write(final_code)
-    
-    print(f"El analizador léxico ha sido generado en {output_filename}")
+    with open(out_file, "w", encoding="utf-8") as f:
+        f.write("\n\n".join(p for p in parts if p.strip()))
+    print(f"✔ Lexer generado en «{out_file}»")
 
+
+# ────────────────────────── CLI simple ───────────────────────────
 def main():
-    """
-    Ejecuta la generación del lexer a partir de 'lexer.yal'.
-    """
-    print("=== Iniciando generación de analizador léxico con YALex ===")
+    print("=== Generando analizador léxico con YALex ===")
     try:
-        pipeline_result = integrate_yalex_pipeline("lexer.yal", use_minimization=True)
-        generate_lexer_code(pipeline_result, output_filename="lexeitor.py")
-        print("=== Generación completada. Archivo 'lexeitor.py' creado. ===")
-    except Exception as e:
-        print("Ocurrió un error durante la generación del lexer:", e)
+        res = integrate_yalex_pipeline("lexer.yal", use_minimization=True)
+        generate_lexer_code(res)
+        print("=== Listo. Ejecuta tus tests. ===")
+    except Exception as exc:
+        print("⚠ Error durante la generación:", exc, file=sys.stderr)
+
 
 if __name__ == "__main__":
     main()
