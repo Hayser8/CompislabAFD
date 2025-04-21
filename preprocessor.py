@@ -263,7 +263,7 @@ def tokenize_postfix(postfix_str):
     return tokens
 
 if __name__ == "__main__":
-    # Prueba con las reglas de comentarios
+
     test_expr_line = "'//' [^\\n]* '\\n'"
     test_expr_block = "'/*' ( _ )* '*/'"
     try:

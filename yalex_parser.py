@@ -4,10 +4,10 @@ class YALexParser:
         Inicializa el parser y carga el archivo .yal
         """
         self.filename = filename
-        self.tokens = {}        # Definiciones de tokens (let)
-        self.rules = {}         # Reglas léxicas (rule)
-        self.header = ""        # Código opcional de header
-        self.trailer = ""       # Código opcional de trailer
+        self.tokens = {}       
+        self.rules = {}         
+        self.header = ""        
+        self.trailer = ""       
         self.parse()
 
     def remove_inline_comment(self, line):
