@@ -1,0 +1,4 @@
+
+// Comentario con simbolos /* y */
+/* Esto es un comentario que /* incluye comentarios anidados */ y mas contenido */
+int var_1 = 0; var_2 = 100;

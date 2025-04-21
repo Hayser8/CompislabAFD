@@ -1,0 +1,15 @@
+
+// Programa de prueba completo
+int main() {
+    int a = 10;
+    float b = 3.14;
+    /* Comentario de bloque
+       que se extiende por varias líneas */
+    if (a == 10) {
+        print("Valor de a es 10");
+    }
+    while (b < 0) {
+        b = b - 0.1;
+    }
+    // Fin del programa
+}

@@ -1,0 +1,10 @@
+
+/* Inicio de comentario
+/* Comentario anidado que deberia
+ser ignorado completamente */
+Continuacion del comentario principal */
+int main() {
+    /* Otro comentario
+    que finaliza correctamente */
+    int numero = 42;
+}

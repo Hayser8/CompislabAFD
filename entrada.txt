@@ -3,7 +3,7 @@ if (x + 10) {
     return x;
 } else {
     /* Comentario de bloque
-       que abarca varias lineas*/
+       que abarca varias lineas
     return 0;
 }
 while (count <= 100) { count = count + 1; }

@@ -1,0 +1,6 @@
+if (a == 1) {
+    print("Esto es un string");
+}
+while (b <= 10) {
+    b = b + 1;
+}

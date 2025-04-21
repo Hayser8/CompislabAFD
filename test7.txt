@@ -1,0 +1,4 @@
+
+int 123numero = 100;  // Error: identificador inválido
+float .dec = 0.5;    // Error: flotante mal formado
+string no_terminado = "Hola mundo;  // Error: string sin cerrar
