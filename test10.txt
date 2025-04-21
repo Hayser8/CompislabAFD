@@ -8,7 +8,7 @@ int main() {
     if (a == 10) {
         print("Valor de a es 10");
     }
-    while (b < 0) {
+    while (b > 0) {
         b = b - 0.1;
     }
     // Fin del programa
