@@ -2,7 +2,7 @@ import sys
 from lexeitor import scan, get_token
 
 
-archivo_entrada = "entrada.txt"
+archivo_entrada = "test10.txt"
 with open(archivo_entrada, "r", encoding="utf-8") as f:
     test_input = f.read()
 
