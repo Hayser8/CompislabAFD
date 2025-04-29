@@ -1,0 +1,7 @@
+%token LPAREN RPAREN NUM
+IGNORE WS
+%%
+Expr :
+    LPAREN Expr RPAREN
+  | NUM
+  ;

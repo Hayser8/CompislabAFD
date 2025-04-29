@@ -1,0 +1,22 @@
+/* Parser de ejemplo con producciones ε */
+
+/* INICIA Sección de TOKENS */
+%token A
+%token B
+%token C
+%token WS
+IGNORE WS
+/* FINALIZA Sección de TOKENS */
+
+%%
+/* INICIA Sección de PRODUCCIONES */
+S:
+    A S B
+  | 
+;
+
+A:
+    C
+  |
+;
+/* FINALIZA Sección de PRODUCCIONES */
