@@ -1,5 +1,5 @@
 import unittest
-from preprocessor import preprocess_expression
+from lexer.preprocessor import preprocess_expression
 
 class TestPreprocessor(unittest.TestCase):
     def test_no_change(self):

@@ -1,5 +1,5 @@
 from typing import List, Set, Optional
-from grammar import Grammar, Production, Symbol, NonTerminal, Terminal
+from parser.grammar import Grammar, Production, Symbol, NonTerminal, Terminal
 
 class Item:
     def __init__(self, production: Production, dot: int = 0):

@@ -1,6 +1,6 @@
 import unittest
-from arbolSINT import SyntaxTree, TreeNode
-from symbol import Symbol
+from lexer.arbolSINT import SyntaxTree, TreeNode
+from lexer.symbol import Symbol
 
 class TestSyntaxTree(unittest.TestCase):
     def test_tree_construction(self):

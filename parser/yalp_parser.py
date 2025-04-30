@@ -1,6 +1,6 @@
 from typing import List
-from yalp_lexer import Tok
-from grammar import Grammar, Terminal, NonTerminal, Production
+from parser.yalp_lexer import Tok
+from parser.grammar import Grammar, Terminal, NonTerminal, Production
 
 class YalpParser:
     def __init__(self, tokens: List[Tok]):

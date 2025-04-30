@@ -1,5 +1,5 @@
 from typing import Dict, Set, Union
-from grammar import Grammar, Terminal, NonTerminal, Symbol
+from parser.grammar import Grammar, Terminal, NonTerminal, Symbol
 
 class FirstFollowCalculator:
     def __init__(self, grammar: Grammar):

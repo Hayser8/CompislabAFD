@@ -1,5 +1,5 @@
 import unittest
-from parser import parse_regex, to_postfix
+from lexer.parser import parse_regex, to_postfix
 
 class TestParser(unittest.TestCase):
     def test_alternation(self):

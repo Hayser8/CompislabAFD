@@ -1,5 +1,5 @@
 import unittest
-from yalex_parser import YALexParser
+from lexer.yalex_parser import YALexParser
 
 class TestYALexParser(unittest.TestCase):
     def setUp(self):

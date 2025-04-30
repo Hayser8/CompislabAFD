@@ -1,9 +1,9 @@
 import unittest
-from parser import parse_regex, to_postfix
-from preprocessor import preprocess_expression
-from symbol import Symbol
-from arbolSINT import SyntaxTree
-from DFA import DFA
+from lexer.parser import parse_regex, to_postfix
+from lexer.preprocessor import preprocess_expression
+from lexer.symbol import Symbol
+from lexer.arbolSINT import SyntaxTree
+from lexer.DFA import DFA
 
 def simulate_dfa(dfa, input_string):
     """
