@@ -1,58 +1,67 @@
-import unittest
-from parser.yalp_lexer import tokenize, Tok
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-class TestYalpLexer(unittest.TestCase):
+import pytest
+from parser.yalp_lexer import Tok, remove_comments, tokenize
 
-    def test_tokenize_simple(self):
-        yalp_input = """
-        %token NUM PLUS
-        IGNORE WS
-        %%
-        Expr : Expr PLUS NUM | NUM ;
-        """
-        tokens = list(tokenize(yalp_input))
+def test_remove_comments_simple():
+    text = "code /* comment */ more"
+    cleaned = remove_comments(text)
+    assert cleaned == ["code               more"]
 
-        types = [t.type for t in tokens]
-        lexemes = [t.lexeme for t in tokens]
+def test_remove_comments_multiline_across_lines():
+    text = "a /* line1\nline2 */ b"
+    cleaned = remove_comments(text)
+    # primera línea pierde el comentario
+    assert cleaned[0].startswith("a  ")
+    # segunda línea mantiene ' b' al final
+    assert cleaned[1].endswith("  b")
 
-        expected_types = [
-            "PERCENT_TOKEN", "IDENTIFIER", "IDENTIFIER",  # %token NUM PLUS
-            "IGNORE", "IDENTIFIER",                       # IGNORE WS
-            "PERCENT_PERCENT",                            # %%
-            "IDENTIFIER", ":", "IDENTIFIER", "IDENTIFIER", "IDENTIFIER",
-            "|", "IDENTIFIER", ";"
-        ]
+def test_tokenize_basic_directives():
+    text = (
+        "%token ID NUM\n"
+        "IGNORE WS\n"
+        "%%\n"
+        "S : ID ;"
+    )
+    toks = list(tokenize(text))
+    result = [(t.type, t.lexeme, t.line, t.column) for t in toks]
+    assert result == [
+        ("PERCENT_TOKEN", "%token", 1, 1),
+        ("IDENTIFIER",   "ID",     1, 8),
+        ("IDENTIFIER",   "NUM",    1, 11),
+        ("IGNORE",       "IGNORE", 2, 1),
+        ("IDENTIFIER",   "WS",     2, 8),
+        ("PERCENT_PERCENT", "%%",  3, 1),
+        ("IDENTIFIER",   "S",      4, 1),
+        (":",            ":",      4, 3),
+        ("IDENTIFIER",   "ID",     4, 5),
+        (";",            ";",      4, 8),
+    ]
 
-        expected_lexemes = [
-            "%token", "NUM", "PLUS",
-            "IGNORE", "WS",
-            "%%",
-            "Expr", ":", "Expr", "PLUS", "NUM",
-            "|", "NUM", ";"
-        ]
+def test_tokenize_with_comments_ignored():
+    text = (
+        "/* intro */\n"
+        "%token A /* inline */ B\n"
+        "X|Y; IGNORE Z\n"
+        "%%"
+    )
+    toks = list(tokenize(text))
+    result = [(t.type, t.lexeme) for t in toks]
+    expected = [
+        ("PERCENT_TOKEN", "%token"),  # lexeme correctamente "%token"
+        ("IDENTIFIER",    "A"),
+        ("IDENTIFIER",    "B"),
+        ("IDENTIFIER",    "X"),
+        ("|",             "|"),
+        ("IDENTIFIER",    "Y"),
+        (";",             ";"),
+        ("IGNORE",        "IGNORE"),
+        ("IDENTIFIER",    "Z"),
+        ("PERCENT_PERCENT", "%%"),
+    ]
+    assert result == expected
 
-        self.assertEqual(types, expected_types)
-        self.assertEqual(lexemes, expected_lexemes)
-
-    def test_tokenize_with_comments(self):
-        yalp_input = """
-        /* Comentario al inicio */
-        %token ID /* comentario inline */ PLUS
-        %%
-        Rule : ID | PLUS ;
-        """
-        tokens = list(tokenize(yalp_input))
-
-        # Confirmamos que los comentarios no afectaron los tokens
-        self.assertTrue(any(t.lexeme == "ID" for t in tokens))
-        self.assertTrue(any(t.lexeme == "PLUS" for t in tokens))
-        self.assertTrue(any(t.lexeme == "Rule" for t in tokens))
-        self.assertTrue(all("/*" not in t.lexeme for t in tokens))  # Nada debería tener comentario
-
-    def test_tokenize_unexpected_character(self):
-        yalp_input = "%token X\n@"
-        with self.assertRaises(SyntaxError):
-            list(tokenize(yalp_input))
-
-if __name__ == "__main__":
-    unittest.main()
+def test_tokenize_error_on_bad_character():
+    with pytest.raises(SyntaxError):
+        list(tokenize("S $ ;"))
