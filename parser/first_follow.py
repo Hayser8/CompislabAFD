@@ -1,103 +1,90 @@
-from typing import Dict, Set, Union
-from parser.grammar import Grammar, Terminal, NonTerminal, Symbol
+# first_follow.py
+
+from typing import Dict, Set, Union, List
+from parser.grammar import Grammar, Terminal, NonTerminal, Symbol, EPSILON
 
 class FirstFollowCalculator:
+    """
+    Calcula los conjuntos FIRST y FOLLOW para una gramática libre de contexto.
+    """
     def __init__(self, grammar: Grammar):
         self.grammar = grammar
         self.first: Dict[Union[Terminal, NonTerminal], Set[Terminal]] = {}
         self.follow: Dict[NonTerminal, Set[Terminal]] = {}
-        self.EPSILON = Terminal("ε")  # usamos un Terminal especial para ε
-
+        self.EPSILON = EPSILON
         self._compute_first()
         self._compute_follow()
 
     def _compute_first(self):
-        """Calcula todos los conjuntos FIRST."""
-        # Inicialización
+        # Inicialización: FIRST(t) = {t}, FIRST(nt) = ∅
         for t in self.grammar.terminals:
             self.first[t] = {t}
         for nt in self.grammar.non_terminals:
             self.first[nt] = set()
+        # Asegurar que ε también esté en el diccionario
+        self.first[self.EPSILON] = {self.EPSILON}
 
         changed = True
         while changed:
             changed = False
-            for production in self.grammar.productions:
-                # ❗️ production.head ahora es str, buscamos el NonTerminal real
-                head = next(nt for nt in self.grammar.non_terminals if str(nt) == production.head)
-                body = production.body
+            for prod in self.grammar.productions:
+                head: NonTerminal = prod.head
                 before = len(self.first[head])
+                first_body = self._first_of_sequence(list(prod.body))
 
-                first_body = self._first_of_sequence(body)
+                # Agregar todo excepto ε
                 self.first[head].update(first_body - {self.EPSILON})
-
+                # Si la secuencia genera ε, incluirlo
                 if self.EPSILON in first_body:
                     self.first[head].add(self.EPSILON)
 
                 if len(self.first[head]) > before:
                     changed = True
 
-    def _first_of_sequence(self, sequence: list[Symbol]) -> Set[Terminal]:
-        """Calcula FIRST de una secuencia de símbolos."""
-        if not sequence:
+    def _first_of_sequence(self, seq: List[Symbol]) -> Set[Terminal]:
+        if not seq:
             return {self.EPSILON}
-
-        first_set = set()
-        for symbol in sequence:
-            first_symbol = self.first[symbol]
-            first_set.update(first_symbol - {self.EPSILON})
-            if self.EPSILON not in first_symbol:
+        result: Set[Terminal] = set()
+        for sym in seq:
+            # Aquí `sym` puede ser T, NT, o EPSILON
+            sym_first = self.first.get(sym, {self.EPSILON} if sym == self.EPSILON else set())
+            result.update(sym_first - {self.EPSILON})
+            if self.EPSILON not in sym_first:
                 break
         else:
-            first_set.add(self.EPSILON)
-
-        return first_set
+            # Todos generaron ε
+            result.add(self.EPSILON)
+        return result
 
     def _compute_follow(self):
-        """Calcula todos los conjuntos FOLLOW."""
-        # Inicialización
+        # Inicialización: FOLLOW(nt) = ∅
         for nt in self.grammar.non_terminals:
             self.follow[nt] = set()
-
-        # El símbolo inicial contiene $
+        # El símbolo inicial lleva $
         self.follow[self.grammar.start_symbol].add(Terminal('$'))
 
         changed = True
         while changed:
             changed = False
-            for production in self.grammar.productions:
-                head = next(nt for nt in self.grammar.non_terminals if str(nt) == production.head)
-                body = production.body
-                trailer = self.follow[head].copy()
-
-                for symbol in reversed(body):
-                    if isinstance(symbol, NonTerminal):
-                        before = len(self.follow[symbol])
-                        self.follow[symbol].update(trailer)
-
-                        if self.EPSILON in self.first[symbol]:
-                            trailer.update(self.first[symbol] - {self.EPSILON})
+            for prod in self.grammar.productions:
+                head = prod.head
+                trailer = set(self.follow[head])
+                # Recorre de derecha a izquierda
+                for sym in reversed(prod.body):
+                    if isinstance(sym, NonTerminal):
+                        before = len(self.follow[sym])
+                        self.follow[sym].update(trailer)
+                        if self.EPSILON in self.first[sym]:
+                            trailer |= (self.first[sym] - {self.EPSILON})
                         else:
-                            trailer = self.first[symbol]
-
-                        if len(self.follow[symbol]) > before:
+                            trailer = set(self.first[sym])
+                        if len(self.follow[sym]) > before:
                             changed = True
                     else:
-                        trailer = self.first[symbol]
+                        trailer = set(self.first.get(sym, set()))
 
-    def get_first(self, symbol: Symbol) -> Set[Terminal]:
-        return self.first.get(symbol, set())
+    def get_first(self, sym: Symbol) -> Set[Terminal]:
+        return self.first.get(sym, set())
 
-    def get_follow(self, non_terminal: NonTerminal) -> Set[Terminal]:
-        return self.follow.get(non_terminal, set())
-
-    def dump_first(self):
-        print("=== FIRST sets ===")
-        for symbol, first_set in self.first.items():
-            if isinstance(symbol, NonTerminal):
-                print(f"FIRST({symbol}) = {{{', '.join(map(str, first_set))}}}")
-
-    def dump_follow(self):
-        print("=== FOLLOW sets ===")
-        for symbol, follow_set in self.follow.items():
-            print(f"FOLLOW({symbol}) = {{{', '.join(map(str, follow_set))}}}")
+    def get_follow(self, nt: NonTerminal) -> Set[Terminal]:
+        return self.follow.get(nt, set())
