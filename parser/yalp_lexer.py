@@ -2,109 +2,126 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, List
 
-@dataclass
+@dataclass(frozen=True)
 class Tok:
-    line: int
+    line:   int
     column: int
-    type: str
+    type:   str
     lexeme: str
 
-def tokenize(text: str) -> Iterable[Tok]:
-    tokens: List[Tok] = []
+def remove_comments(text: str) -> List[str]:
+    """
+    Elimina comentarios multilínea de dos estilos:
+      - C-style    /* ... */
+      - OCaml-style (* ... *)
+    Soporta anidamiento y reemplaza todo el contenido
+    del comentario por espacios para no descolocar columnas.
+    """
     lines = text.splitlines()
-    line_number = 1
-    in_comment = False
+    output: List[str] = []
+    in_c = 0
+    in_ocaml = 0
 
-    for raw_line in lines:
-        current_line = raw_line
-        col_offset = 1
-
-        # ───────────── Ignorar comentarios multilínea ─────────────
-        if in_comment:
-            if "*/" in current_line:
-                in_comment = False
-                current_line = current_line.split("*/", 1)[1]
-            else:
-                line_number += 1
-                continue
-        if "/*" in current_line:
-            if "*/" in current_line:
-                before, after = current_line.split("/*", 1)
-                after = after.split("*/", 1)[1]
-                current_line = before + after
-            else:
-                in_comment = True
-                current_line = current_line.split("/*", 1)[0]
-
-        line = current_line.strip()
-        if not line:
-            line_number += 1
-            continue
-
-        # ───────────── Detectar %token y sus identificadores ─────────────
-        if line.startswith("%token"):
-            col = current_line.find("%token") + 1
-            tokens.append(Tok(line_number, col, "PERCENT_TOKEN", "%token"))
-
-            rest = line[len("%token"):].strip()
-            for match in re.finditer(r"[A-Z_][A-Z0-9_]*", rest):
-                tok = match.group()
-                start_col = current_line.find(tok, col) + 1
-                tokens.append(Tok(line_number, start_col, "IDENTIFIER", tok))
-
-            line_number += 1
-            continue
-
-        # ───────────── Detectar separador de secciones ─────────────
-        if line.strip() == "%%":
-            col = current_line.find("%%") + 1
-            tokens.append(Tok(line_number, col, "PERCENT_PERCENT", "%%"))
-            line_number += 1
-            continue
-        # ───────────── Detectar IGNORE y su identificador ─────────────
-        if line.startswith("IGNORE"):
-            col = current_line.find("IGNORE") + 1
-            tokens.append(Tok(line_number, col, "IGNORE", "IGNORE"))
-
-            rest = line[len("IGNORE"):].strip()
-            match = re.match(r"[A-Z_][A-Z0-9_]*", rest)
-            if match:
-                tok = match.group()
-                start_col = current_line.find(tok, col) + 1
-                tokens.append(Tok(line_number, start_col, "IDENTIFIER", tok))
-            else:
-                raise SyntaxError(f"Se esperaba un identificador después de IGNORE en la línea {line_number}")
-
-            line_number += 1
-            continue
-        # ───────────── Detectar producción o símbolos individuales ─────────────
-        # Procesar el resto de la línea símbolo por símbolo
+    for raw in lines:
+        chars = list(raw)
         i = 0
-        while i < len(current_line):
-            ch = current_line[i]
+        while i < len(chars):
+            # inicio C-style
+            if i+1 < len(chars) and chars[i] == '/' and chars[i+1] == '*' and in_ocaml == 0:
+                in_c += 1
+                chars[i] = chars[i+1] = ' '
+                i += 2
+                continue
+            # fin C-style
+            if in_c > 0:
+                if i+1 < len(chars) and chars[i] == '*' and chars[i+1] == '/':
+                    in_c -= 1
+                    chars[i] = chars[i+1] = ' '
+                    i += 2
+                else:
+                    chars[i] = ' '
+                    i += 1
+                continue
+            # inicio OCaml-style
+            if i+1 < len(chars) and chars[i] == '(' and chars[i+1] == '*' and in_c == 0:
+                in_ocaml += 1
+                chars[i] = chars[i+1] = ' '
+                i += 2
+                continue
+            # fin OCaml-style
+            if in_ocaml > 0:
+                if i+1 < len(chars) and chars[i] == '*' and chars[i+1] == ')':
+                    in_ocaml -= 1
+                    chars[i] = chars[i+1] = ' '
+                    i += 2
+                else:
+                    chars[i] = ' '
+                    i += 1
+                continue
+            # normal
+            i += 1
 
-            # Saltar espacios
+        output.append("".join(chars))
+    return output
+
+def tokenize(text: str) -> Iterable[Tok]:
+    """
+    Tokeniza un fichero .yalp:
+      - %token             → PERCENT_TOKEN
+      - %%                 → PERCENT_PERCENT
+      - IGNORE ident       → IGNORE
+      - símbolos únicos: :, |, ;, (, ), ?, *, +
+      - IDENTIFIER         → [_A-Za-z][_A-Za-z0-9]*
+    """
+    tokens: List[Tok] = []
+    raw_lines   = text.splitlines()
+    clean_lines = remove_comments(text)
+
+    for lineno, line in enumerate(clean_lines, start=1):
+        if not line.strip():
+            continue
+
+        # %token ...
+        m = re.match(r'\s*%token\b', line)
+        if m:
+            col = m.start() + 1
+            tokens.append(Tok(lineno, col, "PERCENT_TOKEN", "%token"))
+            rest = line[m.end():]
+            for idm in re.finditer(r'\b[A-Z_][A-Z0-9_]*\b', rest):
+                tok = idm.group()
+                tokens.append(Tok(lineno, m.end() + idm.start() + 1, "IDENTIFIER", tok))
+            continue
+
+        # %% delimiter
+        if re.match(r'\s*%%\s*$', line):
+            pos = line.find("%%")
+            tokens.append(Tok(lineno, pos+1, "PERCENT_PERCENT", "%%"))
+            continue
+
+        # resto: símbolo a símbolo
+        i = 0
+        while i < len(line):
+            ch = line[i]
             if ch.isspace():
                 i += 1
                 continue
 
-            # Símbolos especiales
-            if ch in {":", "|", ";"}:
-                tokens.append(Tok(line_number, i+1, ch, ch))
+            # un solo carácter de EBNF/producción
+            if ch in {":", "|", ";", "(", ")", "?", "*", "+"}:
+                tokens.append(Tok(lineno, i+1, ch, ch))
                 i += 1
                 continue
 
-            # Identificadores (no terminales o tokens en producción)
+            # identificador (no-terminal o terminal)
             if ch.isalpha() or ch == "_":
                 start = i
-                while i < len(current_line) and (current_line[i].isalnum() or current_line[i] == "_"):
+                while i < len(line) and (line[i].isalnum() or line[i] == "_"):
                     i += 1
-                lexeme = current_line[start:i]
-                tokens.append(Tok(line_number, start+1, "IDENTIFIER", lexeme))
+                lex = line[start:i]
+                typ = "IGNORE" if lex == "IGNORE" else "IDENTIFIER"
+                tokens.append(Tok(lineno, start+1, typ, lex))
                 continue
 
-            # Caracter desconocido
-            raise SyntaxError(f"Carácter inesperado '{ch}' en la línea {line_number}, columna {i+1}")
-        line_number += 1
+            raise SyntaxError(f"Carácter inesperado '{ch}' en línea {lineno}, columna {i+1}")
 
     return tokens

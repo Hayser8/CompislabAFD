@@ -1,113 +1,134 @@
-from typing import List
+from typing import List, Set, Optional, Union
 from parser.yalp_lexer import Tok
 from parser.grammar import Grammar, Terminal, NonTerminal, Production
 
 class YalpParser:
-    def __init__(self, tokens: List[Tok]):
-        self.tokens = tokens
-        self.index = 0
-        self.current = tokens[0] if tokens else None
+    """
+    Parser de archivos .yalp para YAPar.
+    Genera un objeto Grammar en BNF, ignorando agrupadores EBNF:
+      - terminals: Set[Terminal]
+      - non_terminals: Set[NonTerminal]
+      - productions: List[Production]
+      - start_symbol: NonTerminal
+    """
 
-        self.terminals = set()
-        self.non_terminals = set()
-        self.ignore_tokens = set()
-        self.productions = []
-        self.start_symbol = None
+    def __init__(self, tokens: List[Tok]) -> None:
+        self.tokens: List[Tok] = tokens
+        self.index: int = 0
+        self.current: Optional[Tok] = tokens[0] if tokens else None
 
-    def advance(self):
+        # Nombres en crudo; luego los convertimos a objetos
+        self.terminals: Set[str] = set()
+        self.non_terminals: Set[str] = set()
+        self.ignore_tokens: Set[str] = set()
+        self.productions: List[Production] = []
+        self.start_symbol_name: Optional[str] = None
+
+    def advance(self) -> None:
         self.index += 1
         self.current = self.tokens[self.index] if self.index < len(self.tokens) else None
 
-    def match(self, expected_type: str):
-        if self.current is None:
-            raise SyntaxError(f"Se esperaba {expected_type} pero no hay más tokens")
-        if self.current.type != expected_type:
-            raise SyntaxError(f"Se esperaba {expected_type} en línea {self.current.line}, columna {self.current.column}, pero se encontró {self.current.type}")
+    def _expect(self, tok_type: str) -> None:
+        if not self.current or self.current.type != tok_type:
+            got = self.current.type if self.current else "EOF"
+            raise SyntaxError(f"Se esperaba {tok_type}, se obtuvo {got}")
         self.advance()
 
     def parse(self) -> Grammar:
-        self.parse_tokens_section()
-        self.expect_percent_percent()
-        self.parse_productions_section()
-        return self.build_grammar()
+        """Construye la gramática leyendo las secciones de tokens y producciones."""
+        self._parse_tokens_section()
+        self._expect("PERCENT_PERCENT")
+        self._parse_productions_section()
+        return self._build_grammar()
 
-    def parse_tokens_section(self):
-        while self.current is not None and self.current.type != "PERCENT_PERCENT":
+    def _parse_tokens_section(self) -> None:
+        """Analiza las directivas %token e IGNORE antes de '%%'."""
+        while self.current and self.current.type != "PERCENT_PERCENT":
             if self.current.type == "PERCENT_TOKEN":
                 self.advance()
-                while self.current is not None and self.current.type == "IDENTIFIER":
+                while self.current and self.current.type == "IDENTIFIER":
                     self.terminals.add(self.current.lexeme)
                     self.advance()
             elif self.current.type == "IGNORE":
                 self.advance()
-                if self.current is None or self.current.type != "IDENTIFIER":
-                    raise SyntaxError(f"Se esperaba un token para ignorar después de IGNORE en línea {self.current.line}")
-                self.ignore_tokens.add(self.current.lexeme)
-                self.terminals.add(self.current.lexeme)
+                if not self.current or self.current.type != "IDENTIFIER":
+                    raise SyntaxError("Se esperaba IDENTIFIER después de IGNORE")
+                name = self.current.lexeme
+                self.ignore_tokens.add(name)
+                self.terminals.add(name)
                 self.advance()
             else:
-                raise SyntaxError(f"Se esperaba %token o IGNORE en línea {self.current.line}, columna {self.current.column}")
+                raise SyntaxError(f"Se esperaba %token o IGNORE, se obtuvo {self.current.type}")
 
-    def expect_percent_percent(self):
-        if self.current is None or self.current.type != "PERCENT_PERCENT":
-            raise SyntaxError(f"Se esperaba %% en línea {self.current.line} columna {self.current.column}")
-        self.advance()
+    def _parse_productions_section(self) -> None:
+        """Construye las producciones BNF ignorando agrupadores EBNF."""
+        from parser.grammar import Terminal as T, NonTerminal as NT
 
-    def parse_productions_section(self):
-        while self.current is not None:
+        while self.current:
+            # Cabeza de producción
             if self.current.type != "IDENTIFIER":
-                raise SyntaxError(f"Se esperaba un no-terminal en la línea {self.current.line}")
-
-            head = self.current.lexeme
-            self.non_terminals.add(head)
-            if self.start_symbol is None:
-                self.start_symbol = head
-
+                raise SyntaxError(f"Se esperaba no-terminal, se obtuvo {self.current}")
+            head_name = self.current.lexeme
+            if self.start_symbol_name is None:
+                self.start_symbol_name = head_name
+            self.non_terminals.add(head_name)
+            head_nt = NT(head_name)
             self.advance()
 
-            if self.current is None or self.current.lexeme != ":":
-                raise SyntaxError(f"Se esperaba ':' después de {head} en la línea {self.current.line}")
+            # Dos puntos “:”
+            if not self.current or self.current.lexeme != ":":
+                raise SyntaxError(f"Se esperaba ':' después de {head_name}")
             self.advance()
 
-            current_body = []
-
-            while self.current is not None and self.current.lexeme != ";":
+            # Cuerpo de la producción
+            body: List[Union[T, NT]] = []
+            while self.current and self.current.lexeme != ";":
+                # alternativa “|”
                 if self.current.lexeme == "|":
                     self.productions.append(Production(
                         id=len(self.productions),
-                        head=head,
-                        body=tuple(current_body)  # <- CAMBIO AQUÍ
+                        head=head_nt,
+                        body=tuple(body)
                     ))
-                    current_body = []
+                    body = []
                     self.advance()
-                elif self.current.type == "IDENTIFIER":
-                    symbol = self.current.lexeme
-                    if symbol in self.terminals:
-                        current_body.append(Terminal(symbol))
+                    continue
+
+                # agrupadores EBNF → descartar
+                if self.current.lexeme in {"(", ")", "?", "*", "+"}:
+                    self.advance()
+                    continue
+
+                # identificadores
+                if self.current.type == "IDENTIFIER":
+                    lex = self.current.lexeme
+                    if lex in self.terminals:
+                        body.append(T(lex))
                     else:
-                        current_body.append(NonTerminal(symbol))
+                        self.non_terminals.add(lex)
+                        body.append(NT(lex))
                     self.advance()
-                else:
-                    raise SyntaxError(f"Token inesperado {self.current.lexeme} en la producción de {head}")
+                    continue
 
-            if self.current is None:
-                raise SyntaxError(f"Se esperaba ';' para cerrar la producción de {head}")
+                raise SyntaxError(f"Token inesperado en cuerpo: {self.current}")
 
+            # punto y coma “;”
+            if not self.current or self.current.lexeme != ";":
+                raise SyntaxError(f"Falta ';' al final de la producción de {head_name}")
             self.productions.append(Production(
                 id=len(self.productions),
-                head=head,
-                body=tuple(current_body)  # <- CAMBIO AQUÍ
+                head=head_nt,
+                body=tuple(body)
             ))
-
             self.advance()
 
-    def build_grammar(self) -> Grammar:
-        if self.start_symbol is None:
-            raise SyntaxError("No se encontró símbolo inicial en el archivo.")
-        
+    def _build_grammar(self) -> Grammar:
+        """Ensamblaje final de la gramática."""
+        if not self.start_symbol_name:
+            raise SyntaxError("No se encontró símbolo inicial")
         return Grammar(
             terminals={Terminal(t) for t in self.terminals},
             non_terminals={NonTerminal(nt) for nt in self.non_terminals},
             productions=self.productions,
-            start_symbol=NonTerminal(self.start_symbol)
+            start_symbol=NonTerminal(self.start_symbol_name)
         )
