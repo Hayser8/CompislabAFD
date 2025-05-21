@@ -1,231 +1,441 @@
-# Encabezado: Código Python que se copia en la salida
+# ---------- HEADER: código Python incrustado ----------
 import sys
-# Tabla de palabras clave reservadas
+# Tabla de keywords de Python
 keywords = {
-"if": "IF",
-"else": "ELSE",
-"while": "WHILE",
-"return": "RETURN",
-"int": "INT",
-"float": "FLOAT",
-"void": "VOID"
+    "False":"FALSE", "None":"NONE", "True":"TRUE", "and":"AND", "as":"AS",
+    "assert":"ASSERT", "async":"ASYNC", "await":"AWAIT", "break":"BREAK",
+    "class":"CLASS", "continue":"CONTINUE", "def":"DEF", "del":"DEL",
+    "elif":"ELIF", "else":"ELSE", "except":"EXCEPT", "finally":"FINALLY",
+    "for":"FOR", "from":"FROM", "global":"GLOBAL", "if":"IF",
+    "import":"IMPORT", "in":"IN", "is":"IS", "lambda":"LAMBDA",
+    "nonlocal":"NONLOCAL", "not":"NOT", "or":"OR", "pass":"PASS",
+    "raise":"RAISE", "return":"RETURN", "try":"TRY", "while":"WHILE",
+    "with":"WITH", "yield":"YIELD"
 }
+# Para manejar INDENT/DEDENT según niveles de espacio
+indent_stack = [0]
+pending_dedents = []
 
 # --- dfa_alternatives (autogenerado) --------------------------
 
 dfa_alternatives = [
     {
-        "regex": "(whitespace+)LIT<<__EOF_1__>>|(newline)LIT<<__EOF_2__>>|(number)LIT<<__EOF_3__>>|(floatnum)LIT<<__EOF_4__>>|(identifier)LIT<<__EOF_5__>>|(('/*' ([^*] | '*' [^/])* '*' '/'))LIT<<__EOF_6__>>|('//' [^\\n]* '\\n')LIT<<__EOF_7__>>|('\"' ([^\"\\n] | '\\\\' .)* '\"')LIT<<__EOF_8__>>|('+')LIT<<__EOF_9__>>|('-')LIT<<__EOF_10__>>|('*')LIT<<__EOF_11__>>|('/')LIT<<__EOF_12__>>|('%')LIT<<__EOF_13__>>|('==')LIT<<__EOF_14__>>|('!=')LIT<<__EOF_15__>>|('<')LIT<<__EOF_16__>>|('<=')LIT<<__EOF_17__>>|('>=')LIT<<__EOF_18__>>|('>')LIT<<__EOF_19__>>|('=')LIT<<__EOF_20__>>|(';')LIT<<__EOF_21__>>|(',')LIT<<__EOF_22__>>|('(')LIT<<__EOF_23__>>|(')')LIT<<__EOF_24__>>|('{')LIT<<__EOF_25__>>|('}')LIT<<__EOF_26__>>|('[')LIT<<__EOF_27__>>|(']')LIT<<__EOF_28__>>|(eof)LIT<<__EOF_29__>>",
+        "regex": "(newline whitespace*)LIT<<__EOF_1__>>|(whitespace+)LIT<<__EOF_2__>>|(\"#\" [^\\n]*)LIT<<__EOF_3__>>|(integer floatnum?)LIT<<__EOF_4__>>|(floatnum)LIT<<__EOF_5__>>|(identifier)LIT<<__EOF_6__>>|(([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? '\"\"\"' ( [^\"] | '\"\"' [^\"] )* '\"\"\"')LIT<<__EOF_7__>>|(([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? \"'''\" ( [^'] | \"''\" [^'] )* \"'''\")LIT<<__EOF_8__>>|(([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? '\"'  ( [^\"\\\\\\n] | '\\\\' . )* '\"')LIT<<__EOF_9__>>|(([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? \"'\"  ( [^'\\\\\\n] | '\\\\' . )* \"'\")LIT<<__EOF_10__>>|(\"==\")LIT<<__EOF_11__>>|(\"!=\")LIT<<__EOF_12__>>|(\"<=\")LIT<<__EOF_13__>>|(\">=\")LIT<<__EOF_14__>>|(\":=\")LIT<<__EOF_15__>>|(\"->\")LIT<<__EOF_16__>>|(\"\\\\*\\\\*\")LIT<<__EOF_17__>>|(\"//\")LIT<<__EOF_18__>>|(\"\\\\+=\")LIT<<__EOF_19__>>|(\"-=\")LIT<<__EOF_20__>>|(\"\\\\*=\")LIT<<__EOF_21__>>|(\"/=\")LIT<<__EOF_22__>>|(\"%=\")LIT<<__EOF_23__>>|(\"=\")LIT<<__EOF_24__>>|(\"<\")LIT<<__EOF_25__>>|(\">\")LIT<<__EOF_26__>>|(\"+\")LIT<<__EOF_27__>>|(\"-\")LIT<<__EOF_28__>>|(\"*\")LIT<<__EOF_29__>>|(\"/\")LIT<<__EOF_30__>>|(\"%\")LIT<<__EOF_31__>>|(\"@\")LIT<<__EOF_32__>>|(\",\")LIT<<__EOF_33__>>|(\":\")LIT<<__EOF_34__>>|(\";\")LIT<<__EOF_35__>>|(\".\")LIT<<__EOF_36__>>|(\"(\")LIT<<__EOF_37__>>|(\")\")LIT<<__EOF_38__>>|(\"[\")LIT<<__EOF_39__>>|(\"]\")LIT<<__EOF_40__>>|(\"{\")LIT<<__EOF_41__>>|(\"}\")LIT<<__EOF_42__>>|(eof)LIT<<__EOF_43__>>",
         "action": "unified",
         "alternatives": [
             [
+                "newline whitespace*",
+                "# Emite un NEWLINE y luego posibles INDENT/DEDENT count_nl = yytext.count('\\n') indent   = len(yytext) - yytext.rfind('\\n') - 1 # siempre devolvemos NEWLINE primero: pending_action = (\"NEWLINE\",\"NEWLINE\") # ahora manejamos indentaci\u00f3n if indent > indent_stack[-1]: indent_stack.append(indent) pending_dedents.insert(0, (\"INDENT\",\"INDENT\")) else: while indent < indent_stack[-1]: indent_stack.pop() pending_dedents.append((\"DEDENT\",\"DEDENT\")) return pending_action"
+            ],
+            [
                 "whitespace+",
-                "return \"WHITESPACE\""
+                "/* se ignora */"
             ],
             [
-                "newline",
-                "return \"NEWLINE\""
+                "\"#\" [^\\n]*",
+                "return \"COMMENT\""
             ],
             [
-                "number",
-                "return \"INTEGER\""
+                "integer floatnum?",
+                "return \"NUMBER\""
             ],
             [
                 "floatnum",
-                "return \"FLOAT\""
+                "return \"NUMBER\""
             ],
             [
                 "identifier",
                 "if lxm in keywords: return keywords[lxm] return \"IDENTIFIER\""
             ],
             [
-                "('/*' ([^*] | '*' [^/])* '*' '/')",
-                "return \"MULTILINE_COMMENT\""
-            ],
-            [
-                "'//' [^\\n]* '\\n'",
-                "return \"COMMENT\""
-            ],
-            [
-                "'\"' ([^\"\\n] | '\\\\' .)* '\"'",
+                "([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? '\"\"\"' ( [^\"] | '\"\"' [^\"] )* '\"\"\"'",
                 "return \"STRING\""
             ],
             [
-                "'+'",
-                "return \"PLUS\""
+                "([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? \"'''\" ( [^'] | \"''\" [^'] )* \"'''\"",
+                "return \"STRING\""
             ],
             [
-                "'-'",
-                "return \"MINUS\""
+                "([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? '\"'  ( [^\"\\\\\\n] | '\\\\' . )* '\"'",
+                "return \"STRING\""
             ],
             [
-                "'*'",
-                "return \"TIMES\""
+                "([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? \"'\"  ( [^'\\\\\\n] | '\\\\' . )* \"'\"",
+                "return \"STRING\""
             ],
             [
-                "'/'",
-                "return \"DIV\""
+                "\"==\"",
+                "return \"EQ\""
             ],
             [
-                "'%'",
-                "return \"MODULO\""
+                "\"!=\"",
+                "return \"NE\""
             ],
             [
-                "'=='",
-                "return \"EQUAL\""
+                "\"<=\"",
+                "return \"LE\""
             ],
             [
-                "'!='",
-                "return \"NOT_EQUAL\""
+                "\">=\"",
+                "return \"GE\""
             ],
             [
-                "'<'",
-                "return \"LESS_THAN\""
+                "\":=\"",
+                "return \"WALRUS\""
             ],
             [
-                "'<='",
-                "return \"LESS_EQUAL\""
+                "\"->\"",
+                "return \"RARROW\""
             ],
             [
-                "'>='",
-                "return \"GREATER_EQUAL\""
+                "\"\\\\*\\\\*\"",
+                "return \"POW\""
             ],
             [
-                "'>'",
-                "return \"GREATER_THAN\""
+                "\"//\"",
+                "return \"FLOORDIV\""
             ],
             [
-                "'='",
+                "\"\\\\+=\"",
+                "return \"PLUSEQ\""
+            ],
+            [
+                "\"-=\"",
+                "return \"MINEQ\""
+            ],
+            [
+                "\"\\\\*=\"",
+                "return \"TIMEQ\""
+            ],
+            [
+                "\"/=\"",
+                "return \"DIVEQ\""
+            ],
+            [
+                "\"%=\"",
+                "return \"MODEQ\""
+            ],
+            [
+                "\"=\"",
                 "return \"ASSIGN\""
             ],
             [
-                "';'",
-                "return \"SEMICOLON\""
+                "\"<\"",
+                "return \"LT\""
             ],
             [
-                "','",
+                "\">\"",
+                "return \"GT\""
+            ],
+            [
+                "\"+\"",
+                "return \"PLUS\""
+            ],
+            [
+                "\"-\"",
+                "return \"MINUS\""
+            ],
+            [
+                "\"*\"",
+                "return \"TIMES\""
+            ],
+            [
+                "\"/\"",
+                "return \"DIV\""
+            ],
+            [
+                "\"%\"",
+                "return \"MOD\""
+            ],
+            [
+                "\"@\"",
+                "return \"AT\""
+            ],
+            [
+                "\",\"",
                 "return \"COMMA\""
             ],
             [
-                "'('",
+                "\":\"",
+                "return \"COLON\""
+            ],
+            [
+                "\";\"",
+                "return \"SEMICOLON\""
+            ],
+            [
+                "\".\"",
+                "return \"DOT\""
+            ],
+            [
+                "\"(\"",
                 "return \"LPAREN\""
             ],
             [
-                "')'",
+                "\")\"",
                 "return \"RPAREN\""
             ],
             [
-                "'{'",
-                "return \"LBRACE\""
-            ],
-            [
-                "'}'",
-                "return \"RBRACE\""
-            ],
-            [
-                "'['",
+                "\"[\"",
                 "return \"LBRACKET\""
             ],
             [
-                "']'",
+                "\"]\"",
                 "return \"RBRACKET\""
             ],
             [
+                "\"{\"",
+                "return \"LBRACE\""
+            ],
+            [
+                "\"}\"",
+                "return \"RBRACE\""
+            ],
+            [
                 "eof",
-                "raise(\"Fin de archivo\")"
+                "# Al llegar a EOF, expulso todos los DEDENTs restantes while len(indent_stack) > 1: indent_stack.pop() pending_dedents.append((\"DEDENT\",\"DEDENT\")) if pending_dedents: return pending_dedents.pop(0) raise(\"EOF\")"
             ]
         ],
         "dfa_transitions": {
-            "frozenset({frozenset({1, 65, 67, 4, 69, 6, 71, 9, 73, 75, 77, 15, 19, 26, 30, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 59, 61, 63})})": {
-                ":(\t|\r| )": "frozenset({frozenset({2, 3})})",
-                ":(": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":)": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":\n": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":{": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({8, 10, 11, 7})})",
-                ":}": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":[": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":]": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                "e": "frozenset({frozenset({78})})",
-                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({16, 17, 18})})",
-                ":/*": "frozenset({frozenset({20, 21, 23})})",
-                "://": "frozenset({frozenset({27, 28})})",
-                ":\"": "frozenset({frozenset({32, 34, 31})})",
-                ":+": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":-": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":*": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":/": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":%": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":==": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":!=": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":<": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":<=": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":>=": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":=": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":;": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                ":,": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})"
+            "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                ":_": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                ":.": "frozenset({frozenset({61, 62, 63}), frozenset({48, 49, 47})})"
             },
-            "frozenset({frozenset({13, 14})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({13, 14})})"
+            "frozenset({frozenset({38})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({33, 34, 55, 42, 43}), frozenset({55, 39, 40, 42, 43})})"
             },
-            "frozenset({frozenset({8, 10, 11, 7})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({8, 10, 11, 7})})",
-                ":.": "frozenset({frozenset({12})})"
+            "frozenset({frozenset({96, 104, 105, 77, 78, 86, 87, 95})})": {
+                ":\"": "frozenset({frozenset({97, 98, 100})})",
+                "7:(B|F|R|U|b|f|r|u)": "frozenset({frozenset({96, 105, 78, 87})})",
+                ":'": "frozenset({frozenset({106, 107, 109})})",
+                ":\"\"\"": "frozenset({frozenset({80, 82, 79})})",
+                ":'''": "frozenset({frozenset({88, 89, 91})})"
             },
-            "frozenset({frozenset({57})})": {
-                ">": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})"
+            "frozenset({frozenset({3, 4}), frozenset({6, 7})})": {
+                ":(\t| )": "frozenset({frozenset({3, 4}), frozenset({6, 7})})"
             },
-            "frozenset({frozenset({33})})": {
-                ".": "frozenset({frozenset({32, 34, 31})})"
+            "frozenset({frozenset({33, 34, 55, 42, 43}), frozenset({55, 39, 40, 42, 43})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({39, 40, 42, 43, 44, 45, 46, 55}), frozenset({33, 34, 42, 43, 44, 45, 46, 55})})",
+                ":_": "frozenset({frozenset({39, 40, 42, 43, 44, 45, 46, 55}), frozenset({33, 34, 42, 43, 44, 45, 46, 55})})"
             },
-            "frozenset({frozenset({16, 17, 18})})": {
-                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({16, 17, 18})})",
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({16, 17, 18})})"
+            "frozenset({frozenset({178})})": {
+                "o": "frozenset({frozenset({179})})"
             },
-            "frozenset({frozenset({12})})": {
-                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({13, 14})})"
+            "frozenset({frozenset({25, 26})})": {
+                "7:(0|1|2|3|4|5|6|7)": "frozenset({frozenset({55, 27, 42, 43, 28})})",
+                ":_": "frozenset({frozenset({55, 27, 42, 43, 28})})"
             },
-            "frozenset({frozenset({79})})": {
-                "f": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})"
+            "frozenset({frozenset({17, 13})})": {
+                ":_": "frozenset({frozenset({18, 22, 55, 42, 43})})",
+                "h": "frozenset({frozenset({19}), frozenset({14})})"
             },
-            "frozenset({frozenset({78})})": {
-                "o": "frozenset({frozenset({79})})"
+            "frozenset({frozenset({88, 89, 91})})": {
+                "01:(\t|\n|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({88, 89, 91})})",
+                ":''": "frozenset({frozenset({90})})",
+                ":'''": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})"
             },
-            "frozenset({frozenset({24, 22})})": {
-                ":/": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                "99:(\t|\n|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({20, 21, 23})})"
+            "frozenset({frozenset({90})})": {
+                "01:(\t|\n|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({88, 89, 91})})"
             },
-            "frozenset({frozenset({32, 34, 31})})": {
-                ":\\": "frozenset({frozenset({33})})",
-                ":\"": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-                "96:(\t|\r| |!|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({32, 34, 31})})"
+            "frozenset({frozenset({42, 43, 44, 45, 46, 55, 27, 28})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                ":_": "frozenset({frozenset({42, 43, 44, 45, 46, 55, 27, 28})})",
+                ":.": "frozenset({frozenset({61, 62, 63}), frozenset({48, 49, 47})})",
+                "7:(0|1|2|3|4|5|6|7)": "frozenset({frozenset({55, 27, 42, 43, 28})})"
             },
-            "frozenset({frozenset({20, 21, 23})})": {
-                "99:(\t|\n|\r| |!|\"|#|$|%|&|'|(|)|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({20, 21, 23})})",
-                ":*": "frozenset({frozenset({24, 22})})"
+            "frozenset({frozenset({53, 54, 55}), frozenset({51, 52, 55}), frozenset({65, 66, 69}), frozenset({67, 68, 69})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({53, 54, 55}), frozenset({51, 52, 55}), frozenset({65, 66, 69}), frozenset({67, 68, 69})})",
+                ":_": "frozenset({frozenset({53, 54, 55}), frozenset({51, 52, 55}), frozenset({65, 66, 69}), frozenset({67, 68, 69})})"
             },
-            "frozenset({frozenset({2, 3})})": {
-                ":(\t|\r| )": "frozenset({frozenset({2, 3})})"
+            "frozenset({frozenset({32, 31})})": {
+                ":_": "frozenset({frozenset({33, 34, 55, 42, 43}), frozenset({55, 39, 40, 42, 43})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({33, 34, 55, 42, 43}), frozenset({55, 39, 40, 42, 43})})"
             },
-            "frozenset({frozenset({27, 28})})": {
-                "98:(\t|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({27, 28})})",
-                ":\n": "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})"
+            "frozenset({frozenset({106, 107, 109})})": {
+                "95:(\t|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({106, 107, 109})})",
+                ":\\": "frozenset({frozenset({108})})",
+                ":'": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})"
+            },
+            "frozenset({frozenset({179})})": {
+                "f": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})"
+            },
+            "frozenset({frozenset({55, 24, 42, 43, 12, 30})})": {
+                ":(,|O|o)": "frozenset({frozenset({25, 26})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                ":_": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                ":(,|X|x)": "frozenset({frozenset({17, 13})})",
+                ":(,|B|b)": "frozenset({frozenset({32, 31})})"
+            },
+            "frozenset({frozenset({61, 62, 63}), frozenset({48, 49, 47})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({61, 62, 63}), frozenset({48, 49, 47})})",
+                ":_": "frozenset({frozenset({61, 62, 63}), frozenset({48, 49, 47})})",
+                ":(,|E|e)": "frozenset({frozenset({50, 51, 52, 55}), frozenset({64, 65, 66, 69})})"
+            },
+            "frozenset({frozenset({96, 105, 78, 87})})": {
+                ":\"": "frozenset({frozenset({97, 98, 100})})",
+                ":'": "frozenset({frozenset({106, 107, 109})})",
+                ":\"\"\"": "frozenset({frozenset({80, 82, 79})})",
+                ":'''": "frozenset({frozenset({88, 89, 91})})"
+            },
+            "frozenset({frozenset({81})})": {
+                "99:(\t|\n|\r| |!|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({80, 82, 79})})"
+            },
+            "frozenset({frozenset({21}), frozenset({16})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({18, 22, 55, 42, 43})})"
+            },
+            "frozenset({frozenset({99})})": {
+                ".": "frozenset({frozenset({97, 98, 100})})"
+            },
+            "frozenset({frozenset({97, 98, 100})})": {
+                "93:(\t|\r| |!|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({97, 98, 100})})",
+                ":\\": "frozenset({frozenset({99})})",
+                ":\"": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})"
+            },
+            "frozenset({frozenset({37})})": {
+                "n": "frozenset({frozenset({38})})"
+            },
+            "frozenset({frozenset({15}), frozenset({20})})": {
+                "x": "frozenset({frozenset({21}), frozenset({16})})"
+            },
+            "frozenset({frozenset({128, 1, 2, 130, 132, 5, 134, 8, 136, 138, 11, 140, 142, 145, 147, 149, 23, 151, 153, 155, 29, 157, 159, 161, 35, 163, 165, 167, 41, 169, 171, 173, 175, 177, 56, 57, 70, 75, 76, 78, 84, 85, 87, 93, 94, 96, 102, 103, 105, 111, 113, 115, 117, 119, 121, 124, 126})})": {
+                ":\\+=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":\r": "frozenset({frozenset({2})})",
+                ":\n": "frozenset({frozenset({3, 4}), frozenset({6, 7})})",
+                ":-=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":\\*=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":(\t| )": "frozenset({frozenset({3, 4}), frozenset({6, 7})})",
+                ":/=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":#": "frozenset({frozenset({9, 10})})",
+                ":%=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":0": "frozenset({frozenset({55, 24, 42, 43, 12, 30})})",
+                ":<": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":": "frozenset({frozenset({143})})",
+                ":+": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":-": "frozenset({frozenset({122, 148})})",
+                ":*": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":/": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":%": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":@": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":,": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                "::": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":;": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                "n": "frozenset({frozenset({36})})",
+                ":.": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":(": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":)": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":[": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":]": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":{": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":}": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                "e": "frozenset({frozenset({178})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                ":_": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({72, 73, 74, 71})})",
+                "7:(B|F|R|U|b|f|r|u)": "frozenset({frozenset({96, 104, 105, 77, 78, 86, 87, 95})})",
+                ":\"\"\"": "frozenset({frozenset({80, 82, 79})})",
+                ":'''": "frozenset({frozenset({88, 89, 91})})",
+                ":\"": "frozenset({frozenset({97, 98, 100})})",
+                ":'": "frozenset({frozenset({106, 107, 109})})",
+                ":==": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":!=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":<=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":>=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                "::=": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                ":\\*\\*": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                "://": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})"
+            },
+            "frozenset({frozenset({72, 73, 74, 71})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({72, 73, 74, 71})})",
+                ":_": "frozenset({frozenset({72, 73, 74, 71})})",
+                "07:(A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|_|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z)": "frozenset({frozenset({72, 73, 74, 71})})"
+            },
+            "frozenset({frozenset({108})})": {
+                ".": "frozenset({frozenset({106, 107, 109})})"
+            },
+            "frozenset({frozenset({36})})": {
+                "o": "frozenset({frozenset({37})})"
+            },
+            "frozenset({frozenset({19}), frozenset({14})})": {
+                "e": "frozenset({frozenset({15}), frozenset({20})})"
+            },
+            "frozenset({frozenset({42, 43, 44, 45, 46, 18, 22, 55})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                ":_": "frozenset({frozenset({42, 43, 44, 45, 46, 18, 22, 55})})",
+                ":.": "frozenset({frozenset({61, 62, 63}), frozenset({48, 49, 47})})",
+                "h": "frozenset({frozenset({19}), frozenset({14})})"
+            },
+            "frozenset({frozenset({2})})": {
+                ":\n": "frozenset({frozenset({3, 4}), frozenset({6, 7})})"
+            },
+            "frozenset({frozenset({9, 10})})": {
+                "98:(\t|\r| |!|\"|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({9, 10})})"
+            },
+            "frozenset({frozenset({80, 82, 79})})": {
+                ":\"\"": "frozenset({frozenset({81})})",
+                ":\"\"\"": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+                "99:(\t|\n|\r| |!|#|$|%|&|'|(|)|*|+|,|-|.|/|0|1|2|3|4|5|6|7|8|9|:|;|<|=|>|?|@|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[|\\|]|^|_|`|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|z|{|||}|~)": "frozenset({frozenset({80, 82, 79})})"
+            },
+            "frozenset({frozenset({55, 27, 42, 43, 28})})": {
+                "7:(0|1|2|3|4|5|6|7)": "frozenset({frozenset({55, 27, 42, 43, 28})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})",
+                ":_": "frozenset({frozenset({42, 43, 44, 45, 46, 55, 27, 28})})"
+            },
+            "frozenset({frozenset({122, 148})})": {
+                ">": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})"
+            },
+            "frozenset({frozenset({143})})": {
+                ">": "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})"
+            },
+            "frozenset({frozenset({39, 40, 42, 43, 44, 45, 46, 55}), frozenset({33, 34, 42, 43, 44, 45, 46, 55})})": {
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({39, 40, 42, 43, 44, 45, 46, 55}), frozenset({33, 34, 42, 43, 44, 45, 46, 55})})",
+                ":_": "frozenset({frozenset({39, 40, 42, 43, 44, 45, 46, 55}), frozenset({33, 34, 42, 43, 44, 45, 46, 55})})",
+                ":.": "frozenset({frozenset({61, 62, 63}), frozenset({48, 49, 47})})"
+            },
+            "frozenset({frozenset({50, 51, 52, 55}), frozenset({64, 65, 66, 69})})": {
+                ":(+|,|-)": "frozenset({frozenset({53, 54, 55}), frozenset({51, 52, 55}), frozenset({65, 66, 69}), frozenset({67, 68, 69})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({53, 54, 55}), frozenset({51, 52, 55}), frozenset({65, 66, 69}), frozenset({67, 68, 69})})",
+                ":_": "frozenset({frozenset({53, 54, 55}), frozenset({51, 52, 55}), frozenset({65, 66, 69}), frozenset({67, 68, 69})})"
+            },
+            "frozenset({frozenset({18, 22, 55, 42, 43})})": {
+                "h": "frozenset({frozenset({19}), frozenset({14})})",
+                ":_": "frozenset({frozenset({42, 43, 44, 45, 46, 18, 22, 55})})",
+                "1:(0|1|2|3|4|5|6|7|8|9)": "frozenset({frozenset({44, 45, 46}), frozenset({58, 59, 60})})"
             }
         },
-        "dfa_start": "frozenset({frozenset({1, 65, 67, 4, 69, 6, 71, 9, 73, 75, 77, 15, 19, 26, 30, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 59, 61, 63})})",
+        "dfa_start": "frozenset({frozenset({128, 1, 2, 130, 132, 5, 134, 8, 136, 138, 11, 140, 142, 145, 147, 149, 23, 151, 153, 155, 29, 157, 159, 161, 35, 163, 165, 167, 41, 169, 171, 173, 175, 177, 56, 57, 70, 75, 76, 78, 84, 85, 87, 93, 94, 96, 102, 103, 105, 111, 113, 115, 117, 119, 121, 124, 126})})",
         "dfa_final": [
-            "frozenset({frozenset({13, 14})})",
-            "frozenset({frozenset({16, 17, 18})})",
-            "frozenset({frozenset({2, 3})})",
-            "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})",
-            "frozenset({frozenset({8, 10, 11, 7})})"
+            "frozenset({frozenset({122, 148})})",
+            "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})",
+            "frozenset({frozenset({18, 22, 55, 42, 43})})",
+            "frozenset({frozenset({3, 4}), frozenset({6, 7})})",
+            "frozenset({frozenset({33, 34, 55, 42, 43}), frozenset({55, 39, 40, 42, 43})})",
+            "frozenset({frozenset({39, 40, 42, 43, 44, 45, 46, 55}), frozenset({33, 34, 42, 43, 44, 45, 46, 55})})",
+            "frozenset({frozenset({42, 43, 44, 45, 46, 18, 22, 55})})",
+            "frozenset({frozenset({42, 43, 44, 45, 46, 55, 27, 28})})",
+            "frozenset({frozenset({50, 51, 52, 55}), frozenset({64, 65, 66, 69})})",
+            "frozenset({frozenset({53, 54, 55}), frozenset({51, 52, 55}), frozenset({65, 66, 69}), frozenset({67, 68, 69})})",
+            "frozenset({frozenset({55, 24, 42, 43, 12, 30})})",
+            "frozenset({frozenset({55, 27, 42, 43, 28})})",
+            "frozenset({frozenset({72, 73, 74, 71})})",
+            "frozenset({frozenset({9, 10})})"
         ],
         "state_actions": {
-            "frozenset({frozenset({13, 14})})": "ACCEPT",
-            "frozenset({frozenset({8, 10, 11, 7})})": "ACCEPT",
-            "frozenset({frozenset({16, 17, 18})})": "ACCEPT",
-            "frozenset({frozenset({2, 3})})": "ACCEPT",
-            "frozenset({frozenset({62}), frozenset({49}), frozenset({76}), frozenset({53}), frozenset({66}), frozenset({47}), frozenset({43}), frozenset({68}), frozenset({74}), frozenset({25}), frozenset({51}), frozenset({37}), frozenset({60}), frozenset({55}), frozenset({70}), frozenset({58}), frozenset({5}), frozenset({80}), frozenset({72}), frozenset({39}), frozenset({64}), frozenset({29}), frozenset({45}), frozenset({35}), frozenset({41})})": "ACCEPT"
+            "frozenset({frozenset({3, 4}), frozenset({6, 7})})": "ACCEPT",
+            "frozenset({frozenset({33, 34, 55, 42, 43}), frozenset({55, 39, 40, 42, 43})})": "ACCEPT",
+            "frozenset({frozenset({42, 43, 44, 45, 46, 55, 27, 28})})": "ACCEPT",
+            "frozenset({frozenset({53, 54, 55}), frozenset({51, 52, 55}), frozenset({65, 66, 69}), frozenset({67, 68, 69})})": "ACCEPT",
+            "frozenset({frozenset({55, 24, 42, 43, 12, 30})})": "ACCEPT",
+            "frozenset({frozenset({156}), frozenset({127}), frozenset({170}), frozenset({116}), frozenset({160}), frozenset({120}), frozenset({158}), frozenset({150}), frozenset({139}), frozenset({141}), frozenset({92}), frozenset({114}), frozenset({154}), frozenset({101}), frozenset({172}), frozenset({135}), frozenset({83}), frozenset({112}), frozenset({137}), frozenset({146}), frozenset({118}), frozenset({131}), frozenset({166}), frozenset({125}), frozenset({144}), frozenset({110}), frozenset({176}), frozenset({133}), frozenset({129}), frozenset({174}), frozenset({164}), frozenset({152}), frozenset({123}), frozenset({162}), frozenset({168}), frozenset({180})})": "ACCEPT",
+            "frozenset({frozenset({72, 73, 74, 71})})": "ACCEPT",
+            "frozenset({frozenset({42, 43, 44, 45, 46, 18, 22, 55})})": "ACCEPT",
+            "frozenset({frozenset({9, 10})})": "ACCEPT",
+            "frozenset({frozenset({55, 27, 42, 43, 28})})": "ACCEPT",
+            "frozenset({frozenset({122, 148})})": "ACCEPT",
+            "frozenset({frozenset({39, 40, 42, 43, 44, 45, 46, 55}), frozenset({33, 34, 42, 43, 44, 45, 46, 55})})": "ACCEPT",
+            "frozenset({frozenset({50, 51, 52, 55}), frozenset({64, 65, 66, 69})})": "ACCEPT",
+            "frozenset({frozenset({18, 22, 55, 42, 43})})": "ACCEPT"
         }
     }
 ]
@@ -235,19 +445,20 @@ dfa_alternatives = [
 
 import re, sys
 
-# ——————————— 1. clase de error propio ————————————
 class LexerError(Exception):
-    """Errores detectados durante el análisis léxico."""
+    """Errores durante el análisis léxico."""
     def __init__(self, msg, line, col):
         super().__init__(f"[LÉXICO] L{line}:C{col}: {msg}")
         self.line, self.column = line, col
 
+def _strip_comments(text: str) -> str:
+    # No eliminamos aquí; el DFA maneja '#' como token
+    return text
 
-# ——————————— 2. utilidades DFA / decode ————————————
 def decode_robust_key(key: str):
-    """Convierte las claves codificadas del DFA en (es_conjunto, long, charset)."""
     if key.startswith("LIT<<") and key.endswith(">>"):
-        lit = key[5:-2];  return False, len(lit), {lit}
+        lit = key[5:-2]
+        return False, len(lit), {lit}
     i = 0
     while i < len(key) and key[i].isdigit():
         i += 1
@@ -263,17 +474,14 @@ def decode_robust_key(key: str):
         return True, len(lit), {lit}
     return False, len(key), {key}
 
-
 def simulate_dfa(dfa, text: str):
-    """Devuelve (lexema, long, estado_final) o (None,0,None) si no hay match."""
     state, best, pos = dfa["dfa_start"], ("", 0, None), 0
     while pos < len(text):
         chunk = text[pos:]
         matched = False
         for sym, tgt in dfa["dfa_transitions"].get(state, {}).items():
             is_set, ln, charset = decode_robust_key(sym)
-            if ln > len(chunk):
-                continue
+            if ln > len(chunk): continue
             probe = chunk[:ln]
             if (probe in charset) if is_set else (probe == sym):
                 state, pos, matched = tgt, pos + ln, True
@@ -284,141 +492,175 @@ def simulate_dfa(dfa, text: str):
             break
     return best if best[1] else (None, 0, None)
 
-
-# ——————————— 3. tablas rápidas ————————————
+# ——— map de símbolos simples y compuestos ———
 _token_map = {
-    "+": "PLUS",    "-": "MINUS",    "*": "TIMES",   "/": "DIV",   "%": "MODULO",
-    "==": "EQUAL",  "!=": "NOT_EQUAL",
-    "<": "LESS_THAN", "<=": "LESS_EQUAL",
-    ">": "GREATER_THAN", ">=": "GREATER_EQUAL",
-    "=": "ASSIGN",  ";": "SEMICOLON", ",": "COMMA",
-    "(": "LPAREN",  ")": "RPAREN",   "{": "LBRACE",  "}": "RBRACE",
-    "[": "LBRACKET", "]": "RBRACKET"
+    # simples
+    "+":"PLUS", "-":"MINUS", "*":"TIMES", "/":"DIV", "%":"MODULO",
+    "=":"ASSIGN", "<":"LT", ">":"GT", ":":"COLON", ".":"DOT",
+    ",":"COMMA", ";":"SEMICOLON", "@":"AT",
+    "(":"LPAREN", ")":"RPAREN", "[":"LBRACKET", "]":"RBRACKET",
+    "{":"LBRACE", "}":"RBRACE",
+    # compuestos (elipsis primero)
+    "...":"ELLIPSIS",
+    "==":"EQ", "!=":"NE", "<=":"LE", ">=":"GE",
+    ":=":"WALRUS", "->":"RARROW",
+    "**":"POW", "//":"FLOORDIV",
+    "+=":"PLUSEQ", "-=":"MINEQ", "*=":"TIMEQ",
+    "/=":"DIVEQ", "%=":"MODEQ",
+    "**=":"POW_EQ", "//=":"FLOORDIV_EQ",
 }
-_num = re.compile(r"^[0-9]+$")
-_flt = re.compile(r"^[0-9]+\.[0-9]+$")
-_id  = re.compile(r"^[A-Za-z_][A-Za-z_0-9]*$")
 
+# Reconoce bin, oct, hex, dec con underscores y floats con exponentes
+_num = re.compile(r'^(?:0[bB][01_]+|0[oO][0-7_]+|0[xX][0-9A-Fa-f_]+|\d[\d_]*)$')
+_flt = re.compile(r'^(?:\d[\d_]*\.\d[\d_]*|\.\d[\d_]*|\d[\d_]*[eE][+-]?\d[\d_]*)$')
+_id  = re.compile(r'^[A-Za-z_][A-Za-z_0-9]*$')
 
 def _categorize(lxm: str):
-    if lxm in keywords:   return keywords[lxm]
-    if lxm in _token_map: return _token_map[lxm]
-    if _num.match(lxm):   return "INTEGER"
-    if _flt.match(lxm):   return "FLOAT"
-    if _id.match(lxm):    return "IDENTIFIER"
-    if lxm.startswith("//"): return "COMMENT"
-    if lxm.startswith("/*"): return "MULTILINE_COMMENT"
-    if lxm.startswith('"'):  return "STRING"
-    if lxm == "\n":          return "NEWLINE"
-    if all(c in " \t\r" for c in lxm): return "WHITESPACE"
+    if lxm in keywords:     return keywords[lxm]
+    if lxm in _token_map:   return _token_map[lxm]
+    if "\n" in lxm:         return "NEWLINE"
+    if all(c.isspace() for c in lxm): return "WHITESPACE"
+    if _flt.match(lxm):     return "FLOAT"
+    if _num.match(lxm):     return "INTEGER"
+    if _id.match(lxm):      return "IDENTIFIER"
     return "UNKNOWN"
 
+_cur_line, _cur_col = 1, 1
 
-# ——————————— 4. estado global de posición ————————————
-_cur_line, _cur_col = 1, 1   # columnas inician en 1
-
-
-# ——————————— 5. get_token con detección de errores ————————————
 def get_token(text: str):
     global _cur_line, _cur_col
 
-    best_lx, best_ac, best_ln = None, None, 0
+    # Comentario de línea con '#'
+    if text.startswith("#"):
+        idx = text.find("\n")
+        if idx == -1: idx = len(text)
+        return text[:idx], "COMMENT", idx
 
-    # 1. probar DFA
+    # Literales de cadena
+    if text[0] in {"'", '"'}:
+        quote = text[0]
+        if text.startswith(quote*3):
+            end_seq = quote*3
+            i = 3
+            while i < len(text):
+                if text.startswith(end_seq, i):
+                    i += 3
+                    return text[:i], "STRING", i
+                if text[i] == "\\" and i+1 < len(text):
+                    i += 2
+                else:
+                    i += 1
+            raise LexerError("Cadena triple sin cerrar", _cur_line, _cur_col)
+        i, esc = 1, False
+        while i < len(text):
+            if not esc and text[i] == quote:
+                return text[:i+1], "STRING", i+1
+            esc = (not esc and text[i] == "\\")
+            i += 1
+        raise LexerError("Cadena sin cerrar", _cur_line, _cur_col)
+
+    # 1) Elipsis '...'
+    if text.startswith("..."):
+        return "...", "ELLIPSIS", 3
+
+    # 2) Literales numéricas con prefijos 0b/0o/0x y underscores
+    m = re.match(r'0[bB][01_]+|0[oO][0-7_]+|0[xX][0-9A-Fa-f_]+', text)
+    if m:
+        lit = m.group(0)
+        return lit, "INTEGER", len(lit)
+
+    # 3) DFA unificado
+    best_lx, best_ac, best_ln = None, None, 0
     for dfa in dfa_alternatives:
         lx, ln, st = simulate_dfa(dfa, text)
         if ln > best_ln:
             best_ln, best_lx = ln, lx
             best_ac = dfa["state_actions"].get(str(st)) or dfa["action"]
 
-    # 2. fallbacks + detección manual de errores
+    # 4) Dos caracteres
     two = text[:2]
-
-    # comentario de bloque
-    if text.startswith("/*"):
-        end = text.find("*/", 2)
-        if end != -1:
-            return text[:end+2], "MULTILINE_COMMENT", end+2
-        raise LexerError("Comentario de bloque sin cerrar", _cur_line, _cur_col)
-
-    # string
-    if text.startswith('"'):
-        i, escaped = 1, False
-        while i < len(text):
-            if not escaped and text[i] == '"':
-                return text[:i+1], "STRING", i+1
-            escaped = (not escaped and text[i] == '\\\\')
-            i += 1
-        raise LexerError("Cadena de caracteres sin comillas de cierre",
-                         _cur_line, _cur_col)
-
-    # operadores de dos caracteres
     if two in _token_map and best_ln < 2:
         return two, _token_map[two], 2
 
-    # tokens “simples” si DFA no ayudó
+    # 5) Fallback manual
     if best_ln == 0 and text:
         ch = text[0]
-
         if ch in _token_map:
             return ch, _token_map[ch], 1
-
         if ch.isalpha() or ch == "_":
             j = 1
             while j < len(text) and (text[j].isalnum() or text[j] == "_"):
                 j += 1
-            lx = text[:j]
-            return lx, keywords.get(lx, "IDENTIFIER"), j
-
+            tok = text[:j]
+            return tok, keywords.get(tok, "IDENTIFIER"), j
         if ch.isdigit():
             i = 0
             while i < len(text) and text[i].isdigit():
                 i += 1
             if i < len(text) and text[i] == ".":
-                j = i + 1
+                j = i+1
                 while j < len(text) and text[j].isdigit():
                     j += 1
-                if j > i + 1:
+                if j > i+1:
                     return text[:j], "FLOAT", j
             return text[:i], "INTEGER", i
 
-    # 3. interpretar la acción si era “unified”
+    # 6) Categorización final
     if best_ac in (None, "unified", "ACCEPT") and best_lx is not None:
         best_ac = _categorize(best_lx)
 
     return best_lx, best_ac, best_ln
 
-
-# ——————————— 6. scan con actualización línea/col ————————————
 def scan(text: str):
     global _cur_line, _cur_col
-    out, i = [], 0
-    SKIP = {"WHITESPACE", "NEWLINE", "COMMENT", "MULTILINE_COMMENT"}
+    # No strip_comments aquí; '#' lo maneja DFA
+    lines = text.splitlines(keepends=True)
+    indent_stack = [0]
+    out = []
 
-    while i < len(text):
-        lx, ac, ln = get_token(text[i:])
+    for raw in lines:
+        # 1) contar espacios iniciales
+        sp = 0
+        while sp < len(raw) and raw[sp] == " ":
+            sp += 1
+        rest = raw[sp:]
 
-        if ln == 0:
-            raise LexerError("Símbolo desconocido", _cur_line, _cur_col)
+        # 2) generar INDENT/DEDENT
+        if rest.strip() != "":
+            if sp > indent_stack[-1]:
+                indent_stack.append(sp)
+                out.append(("", "INDENT"))
+            elif sp < indent_stack[-1]:
+                while indent_stack and indent_stack[-1] > sp:
+                    indent_stack.pop()
+                    out.append(("", "DEDENT"))
+                if indent_stack[-1] != sp:
+                    raise LexerError("Error de indentación", _cur_line, sp+1)
 
-        # actualizar contadores de posición
-        segmento = text[i:i+ln]
-        nl = segmento.count("\n")
-        if nl:
-            _cur_line += nl
-            _cur_col = 1 + len(segmento) - segmento.rfind("\n")
-        else:
-            _cur_col += ln
+        # 3) tokenizar la línea
+        i = 0
+        while i < len(rest):
+            lx, ac, ln = get_token(rest[i:])
+            if ln == 0:
+                raise LexerError("Símbolo desconocido", _cur_line, sp + i + 1)
+            frag = rest[i:i+ln]
+            nl = frag.count("\n")
+            if nl:
+                _cur_line += nl
+                _cur_col = 1 + len(frag) - frag.rfind("\n")
+            else:
+                _cur_col += ln
 
-        if ac not in SKIP:
-            out.append((lx, ac))
+            if ac not in {"WHITESPACE","COMMENT","MULTILINE_COMMENT"}:
+                out.append((lx, ac))
+            i += ln
 
-        i += ln
+    # 4) al final, emitir DEDENT hasta el nivel 0
+    while len(indent_stack) > 1:
+        indent_stack.pop()
+        out.append(("", "DEDENT"))
 
     return out
 
 
 # --- trailer --------------------------------------------------
-
-# Trailer: Código que se agrega al final del archivo generado
-print("Fin de análisis léxico")

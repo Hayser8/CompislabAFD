@@ -1,0 +1,48 @@
+# -*- coding: utf-8 -*-
+"""Módulo de prueba para lexer v1.0
+Contiene ejemplos de:
+ - indentación
+ - literales y escapes
+"""
+
+def foo(bar, baz=42, *args, **kwargs):
+    # Comentario simple
+    x = 0b1010_1010        # entero binario con guiones bajos
+    y = 0xCAFE_F00D        # entero hexadecimal
+    z = 3.1415_9265e-01    # flotante con exponentes y guiones
+    s1 = 'Cadena simple'
+    s2 = "Cadena con \"comillas\" y \\n salto"
+    s3 = r'Raw\nstring'
+    s4 = f"Interpolación: {bar!r}, {baz}"
+    s5 = ''' + "'''" + '''
+Texto en triple-comillas simples
+con 'comillas' y "dobles"
+''' + "'''" + '''
+    text = """Texto
+multilínea con 'comillas' y "dobles"
+fin"""
+    if x >= y:
+        print(s1, s2)
+    elif x != z:
+        return {'key': s3, 'value': s4}
+    else:
+        ...  # Ellipsis literal
+    # Operadores en sitio
+    x += 1
+    x -= 2
+    x *= 3
+    x /= 4
+    x %= 5
+    x **= 2
+    x //= 3
+    x := x + 1   # walrus operator
+    # Flechas y slices
+    arrow = lambda a, b: a -> b
+    slice_example = [1,2,3,4][1:3]
+    # Fin de función
+
+class Bar:
+    def __init__(self):
+        pass
+
+# DEDENTs finales

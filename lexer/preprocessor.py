@@ -59,7 +59,7 @@ def parse_expr(expr, i, end, closing=None):
     """
     Procesa la expresión desde la posición i hasta end.
     Maneja:
-      - Literales escritos entre comillas simples,
+      - Literales escritos entre comillas simples o dobles,
       - Clases de caracteres [ ... ] (se envuelven en LIT<…>),
       - Grupos (paréntesis) y cuantificadores (+, ?, *),
       - Secuencias con backslash.
@@ -74,27 +74,37 @@ def parse_expr(expr, i, end, closing=None):
             i += 1
             continue
 
-        # Manejo de literales preformateados: Si se encuentra "LIT<" lo dejamos intacto.
+        # Literales preformateados: "LIT<...>"
         if expr.startswith("LIT<", i):
             j = expr.find(">", i + 4)
             if j == -1:
-                raise ValueError("No se encontró '>' en LIT<…> a partir de la posición " + str(i))
+                raise ValueError(f"No se encontró '>' en LIT<…> desde la posición {i}")
             token = expr[i:j+1]
-            i = j + 1
             print(f"DEBUG: parse_expr - encontrado LIT<…>: {token!r}")
             result.append(token)
+            i = j + 1
             continue
 
-        # Literales entre comillas simples
-        if c == "'":
-            j = expr.find("'", i+1)
-            if j == -1:
-                raise ValueError("No se encontró comilla de cierre en posición " + str(i))
-            literal_content = expr[i+1:j]
-            # Decodificar secuencias de escape (por ejemplo, "\\n" a "\n")
-            literal_content = bytes(literal_content, "utf-8").decode("unicode_escape")
-            token = f"LIT<<{literal_content}>>"
-            print(f"DEBUG: parse_expr - literal entre comillas: {token!r}")
+        # Literales entre comillas simples o dobles
+        if c in ("'", '"'):
+            quote = c
+            j = i + 1
+            literal_chars = []
+            while j < end:
+                if expr[j] == "\\" and j+1 < end:
+                    literal_chars.append(expr[j:j+2])
+                    j += 2
+                elif expr[j] == quote:
+                    break
+                else:
+                    literal_chars.append(expr[j])
+                    j += 1
+            if j >= end or expr[j] != quote:
+                raise ValueError(f"No se encontró comilla de cierre para literal iniciado en posición {i}")
+            raw = "".join(literal_chars)
+            decoded = bytes(raw, "utf-8").decode("unicode_escape")
+            token = f"LIT<<{decoded}>>"
+            print(f"DEBUG: parse_expr - literal entre comillas ({quote}…{quote}): {token!r}")
             i = j + 1
             if i < end and expr[i] in ('+', '?', '*'):
                 op = expr[i]
@@ -102,41 +112,39 @@ def parse_expr(expr, i, end, closing=None):
                     token = f"({token}·{token}*)"
                 elif op == '?':
                     token = f"({token}|ε)"
-                elif op == '*':
+                else:  # '*'
                     token = token + "*"
                 print(f"DEBUG: parse_expr - cuantificador '{op}' aplicado a literal: {token!r}")
                 i += 1
             result.append(token)
             continue
 
-        # Procesamiento de clases de caracteres [ ... ]
+        # Clases de caracteres [ ... ]
         if c == '[':
             j = expr.find(']', i+1)
             if j == -1:
-                raise ValueError("No se encontró ']' para clase de caracteres iniciada en la posición " + str(i))
-            else:
-                content = expr[i+1:j]
-                expanded = expand_charclass_cached(content)
-                i = j+1
-                if i < end and expr[i] in ('+', '?', '*'):
-                    op = expr[i]
-                    # Envolver la expansión completa en LIT<<…>>
-                    literal = f"LIT<<{expanded}>>"
-                    if op == '+':
-                        literal = f"({literal}·{literal}*)"
-                    elif op == '?':
-                        literal = f"({literal}|ε)"
-                    else:  # '*'
-                        literal = literal + "*"
-                    print(f"DEBUG: parse_expr - cuantificador '{op}' aplicado a clase: {literal!r}")
-                    i += 1
-                    result.append(literal)
+                raise ValueError(f"No se encontró ']' para clase iniciada en posición {i}")
+            content = expr[i+1:j]
+            expanded = expand_charclass_cached(content)
+            i = j + 1
+            if i < end and expr[i] in ('+', '?', '*'):
+                op = expr[i]
+                literal = f"LIT<<{expanded}>>"
+                if op == '+':
+                    literal = f"({literal}·{literal}*)"
+                elif op == '?':
+                    literal = f"({literal}|ε)"
                 else:
-                    result.append(f"LIT<<{expanded}>>")
-                print(f"DEBUG: parse_expr - clase de caracteres [{content!r}] expandida a: {expanded!r}")
+                    literal = literal + "*"
+                print(f"DEBUG: parse_expr - cuantificador '{op}' aplicado a clase: {literal!r}")
+                i += 1
+                result.append(literal)
+            else:
+                result.append(f"LIT<<{expanded}>>")
+            print(f"DEBUG: parse_expr - clase [{content!r}] → {expanded!r}")
             continue
 
-        # Secuencias con backslash
+        # Secuencias escapadas
         if c == '\\':
             if i + 1 < end:
                 result.append(decode_escape(expr[i+1]))
@@ -146,7 +154,7 @@ def parse_expr(expr, i, end, closing=None):
                 i += 1
             continue
 
-        # Grupo con paréntesis
+        # Grupos (...)
         if c == '(':
             sub, new_i = parse_expr(expr, i+1, end, closing=')')
             token = f"({sub})"
@@ -164,21 +172,21 @@ def parse_expr(expr, i, end, closing=None):
             result.append(token)
             continue
 
-        # Llaves { ... } con cuantificadores
+        # Cuantificadores {m,n}
         if c == '{':
             j = expr.find('}', i+1)
             if j != -1 and (j - i) >= 2 and expr[j-1] in "+?*":
-                qgroup_content = expr[i+1:j-1]
-                qgroup_op = expr[j-1]
-                token = f"{{{qgroup_content}}}{qgroup_op}"
+                content = expr[i+1:j-1]
+                op = expr[j-1]
+                token = f"{{{content}}}{op}"
                 result.append(token)
-                i = j+1
+                i = j + 1
             else:
                 result.append(c)
                 i += 1
             continue
 
-        # Caracter alfanumérico suelto
+        # Literales alfanuméricos sueltos
         if c.isalnum():
             token = c
             i += 1
@@ -195,28 +203,27 @@ def parse_expr(expr, i, end, closing=None):
             result.append(token)
             continue
 
-        # Operadores y otros caracteres
+        # Operadores y punto medio de concatenación
         if c in ('|', '·'):
             result.append(c)
             i += 1
             continue
 
+        # Cualquier otro carácter
         result.append(c)
         i += 1
 
-    # Si se esperaba un cierre pero se llegó al final, lanzamos un error.
+    # Si esperaba un cierre y no llegó
     if closing is not None:
-        raise ValueError(f"No se encontró el carácter de cierre {closing} en la expresión")
+        raise ValueError(f"No se encontró el carácter de cierre {closing}")
     return "".join(result), i
 
 def preprocess_expression_manual(expression):
-    expr = expression.replace("\n", "\n")
+    expr = expression
     processed, pos = parse_expr(expr, 0, len(expr))
     if pos != len(expr):
         raise ValueError("No se consumió toda la expresión")
-    # Si el resultado está compuesto únicamente por tokens LIT<<…>>,
-    # se reensambla en un único literal. Si hay otros operadores o símbolos,
-    # se deja intacto.
+    # Reensamble si sólo hay literales
     if re.fullmatch(r"(LIT<<[^<>]*>>)+", processed):
         tokens = re.findall(r"LIT<<([^<>]*)>>", processed)
         processed = "LIT<<" + "".join(tokens) + ">>"
@@ -224,36 +231,31 @@ def preprocess_expression_manual(expression):
 
 def tokenize_postfix(postfix_str):
     """
-    Tokeniza la notación postfix respetando los literales delimitados por LIT< ... >.
+    Tokeniza la notación postfix respetando los literales delimitados por LIT< ... >>.
     Retorna una lista de objetos Symbol.
     """
     tokens = []
     i = 0
     n = len(postfix_str)
     while i < n:
-        # Saltar espacios en blanco
         while i < n and postfix_str[i].isspace():
             i += 1
         if i >= n:
             break
-        # Si el token comienza con LIT<, consumir todo el literal hasta el '>'
-        if postfix_str.startswith("LIT<", i):
+        if postfix_str.startswith("LIT<<", i):
             start = i
-            i += 4  # omitir "LIT<"
+            i += 5
             literal_chars = []
-            while i < n and postfix_str[i] != ">":
+            while i < n and not postfix_str.startswith(">>", i):
                 literal_chars.append(postfix_str[i])
                 i += 1
             if i >= n:
-                raise ValueError("No se encontró '>' para token literal iniciado en la posición " + str(start))
-            # Consumir el '>'
-            i += 1
-            literal_content = "".join(literal_chars)
-            # Decodificar secuencias escapadas (por ejemplo, "\\t" → "\t")
-            literal_converted = bytes(literal_content, "utf-8").decode("unicode_escape")
-            tokens.append(Symbol(literal_converted, SymbolType.LITERAL))
+                raise ValueError(f"No se encontró '>>' para literal iniciado en {start}")
+            i += 2
+            content = "".join(literal_chars)
+            decoded = bytes(content, "utf-8").decode("unicode_escape")
+            tokens.append(Symbol(decoded, SymbolType.LITERAL))
         else:
-            # Si no es literal, el token es un solo carácter (operador o literal)
             ch = postfix_str[i]
             if ch in {'*', '|', '·', '+', '?'}:
                 tokens.append(Symbol(ch, SymbolType.OPERATOR))
@@ -263,18 +265,10 @@ def tokenize_postfix(postfix_str):
     return tokens
 
 if __name__ == "__main__":
-
-    test_expr_line = "'//' [^\\n]* '\\n'"
-    test_expr_block = "'/*' ( _ )* '*/'"
-    try:
-        preprocessed_line = preprocess_expression_manual(test_expr_line)
-        print("Expresión original (comentario línea):", test_expr_line)
-        print("Preprocesada (comentario línea):", preprocessed_line)
-    except Exception as e:
-        print("Error procesando comentario línea:", e)
-    try:
-        preprocessed_block = preprocess_expression_manual(test_expr_block)
-        print("Expresión original (comentario bloque):", test_expr_block)
-        print("Preprocesada (comentario bloque):", preprocessed_block)
-    except Exception as e:
-        print("Error procesando comentario bloque:", e)
+    # Pruebas rápidas
+    for test in ["'//'\n", "'/*' ( _ )* '*/'"]:
+        try:
+            out = preprocess_expression_manual(test)
+            print(f"{test!r} → {out!r}")
+        except Exception as e:
+            print(f"Error en {test!r}: {e}")
