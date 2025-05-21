@@ -1,62 +1,46 @@
-import unittest
+# tests/test_grammar.py
+
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import pytest
 from parser.grammar import Terminal, NonTerminal, Production, Grammar
 
-class TestGrammarModule(unittest.TestCase):
+@pytest.fixture
+def simple_grammar():
+    a, b = Terminal("a"), Terminal("b")
+    S, A = NonTerminal("S"), NonTerminal("A")
+    p1 = Production(0, head=S, body=(a, A))
+    p2 = Production(1, head=S, body=(b,))
+    return Grammar(
+        terminals={a, b},
+        non_terminals={S, A},
+        productions=[p1, p2],
+        start_symbol=S
+    )
 
-    def setUp(self):
-        print("\n[Setup] Inicializando símbolos, producciones y gramática...")
+def test_production_head_type(simple_grammar):
+    for p in simple_grammar.productions:
+        assert isinstance(p.head, NonTerminal)
 
-        self.t_NUM = Terminal("NUM")
-        self.t_PLUS = Terminal("PLUS")
-        self.nt_Expr = NonTerminal("Expr")
-        
-        self.p1 = Production(id=0, head="Expr", body=(self.nt_Expr, self.t_PLUS, self.t_NUM))
-        self.p2 = Production(id=1, head="Expr", body=(self.t_NUM,))
+def test_production_repr(simple_grammar):
+    assert repr(simple_grammar.productions[0]) == "S → a A"
 
-        self.grammar = Grammar(
-            terminals={self.t_NUM, self.t_PLUS},
-            non_terminals={self.nt_Expr},
-            productions=[self.p1, self.p2],
-            start_symbol=self.nt_Expr
-        )
+def test_grammar_repr_includes_sections(simple_grammar):
+    rep = repr(simple_grammar)
+    assert "Terminals:" in rep
+    assert "NonTerminals:" in rep
+    assert "Start Symbol: S" in rep
+    assert "S → a A" in rep and "S → b" in rep
 
-        print(f"[Setup] Producciones: {self.p1}, {self.p2}")
-        print(f"[Setup] Terminales: {self.grammar.terminals}")
-        print(f"[Setup] No terminales: {self.grammar.non_terminals}")
-        print(f"[Setup] Símbolo inicial: {self.grammar.start_symbol}")
+def test_augmented_grammar(simple_grammar):
+    G2 = simple_grammar.augmented()
+    assert G2.start_symbol.name.endswith("'")
+    prod0 = G2.productions[0]
+    assert prod0.head == G2.start_symbol
+    assert prod0.body == (simple_grammar.start_symbol,)
 
-    def test_terminal_and_nonterminal_repr(self):
-        print("\n[Test] test_terminal_and_nonterminal_repr")
-        print(f"  Repr Terminal: {repr(self.t_NUM)}")
-        print(f"  Repr No-Terminal: {repr(self.nt_Expr)}")
-        self.assertEqual(repr(self.t_NUM), "NUM")
-        self.assertEqual(repr(self.nt_Expr), "Expr")
-
-    def test_production_repr(self):
-        print("\n[Test] test_production_repr")
-        print(f"  Producción p1: {repr(self.p1)}")
-        expected = "Expr → Expr PLUS NUM"
-        self.assertEqual(repr(self.p1), expected)
-
-    def test_grammar_construction(self):
-        print("\n[Test] test_grammar_construction")
-        print(f"  Terminales en gramática: {self.grammar.terminals}")
-        print(f"  No terminales en gramática: {self.grammar.non_terminals}")
-        self.assertIn(self.t_PLUS, self.grammar.terminals)
-        self.assertIn(self.nt_Expr, self.grammar.non_terminals)
-        self.assertEqual(len(self.grammar.productions), 2)
-        self.assertEqual(self.grammar.start_symbol, self.nt_Expr)
-
-    def test_augmented_grammar(self):
-        print("\n[Test] test_augmented_grammar")
-        augmented = self.grammar.augmented()
-        print(f"  Símbolo inicial original: {self.grammar.start_symbol}")
-        print(f"  Nuevo símbolo inicial: {augmented.start_symbol}")
-        print(f"  Nueva producción: {augmented.productions[0]}")
-        self.assertIn(NonTerminal("Expr'"), augmented.non_terminals)
-        self.assertEqual(augmented.start_symbol.name, "Expr'")
-        self.assertEqual(augmented.productions[0].head, "Expr'")
-        self.assertEqual(augmented.productions[0].body, (self.nt_Expr,))
-
-if __name__ == '__main__':
-    unittest.main()
+def test_immutable_collections(simple_grammar):
+    tset = simple_grammar.terminals
+    tset.add(Terminal("c"))
+    assert Terminal("c") not in simple_grammar.terminals

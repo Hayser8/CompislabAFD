@@ -1,50 +1,52 @@
-import unittest
-from parser.grammar import Terminal, NonTerminal, Production, Grammar
+# tests/test_first_follow.py
+
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import pytest
+from parser.grammar import Grammar, Terminal, NonTerminal, Production, EPSILON
 from parser.first_follow import FirstFollowCalculator
 
-class TestFirstFollowCalculator(unittest.TestCase):
+@pytest.fixture
+def simple_grammar():
+    # Gramática de prueba:
+    #   S → A a | ε
+    #   A → b
+    S = NonTerminal("S")
+    A = NonTerminal("A")
+    a = Terminal("a")
+    b = Terminal("b")
+    prods = [
+        Production(0, S, (A, a)),
+        Production(1, S, (EPSILON,)),
+        Production(2, A, (b,))
+    ]
+    return Grammar(
+        terminals={a, b},
+        non_terminals={S, A},
+        productions=prods,
+        start_symbol=S
+    )
 
-    def setUp(self):
-        print("\n[Setup] Construyendo gramática para FIRST/FOLLOW...")
+def test_first_sets(simple_grammar):
+    ffc = FirstFollowCalculator(simple_grammar)
+    # FIRST(A) = {b}
+    assert ffc.get_first(NonTerminal("A")) == {Terminal("b")}
+    # FIRST(S) = {b, ε}  ← aquí no entra 'a' porque A no genera ε
+    assert ffc.get_first(NonTerminal("S")) == {Terminal("b"), EPSILON}
+    # FIRST(a) = {a}
+    assert ffc.get_first(Terminal("a")) == {Terminal("a")}
 
-        # Símbolos
-        self.t_NUM = Terminal("NUM")
-        self.t_PLUS = Terminal("PLUS")
-        self.nt_Expr = NonTerminal("Expr")
+def test_follow_sets(simple_grammar):
+    ffc = FirstFollowCalculator(simple_grammar)
+    S, A = NonTerminal("S"), NonTerminal("A")
+    assert Terminal("$") in ffc.get_follow(S)
+    assert Terminal("a") in ffc.get_follow(A)
 
-        # Producciones
-        self.p1 = Production(id=0, head="Expr", body=(self.nt_Expr, self.t_PLUS, self.t_NUM))
-        self.p2 = Production(id=1, head="Expr", body=(self.t_NUM,))
+def test_first_of_empty_sequence(simple_grammar):
+    ffc = FirstFollowCalculator(simple_grammar)
+    assert ffc._first_of_sequence([]) == {EPSILON}
 
-        # Gramática
-        self.grammar = Grammar(
-            terminals={self.t_NUM, self.t_PLUS},
-            non_terminals={self.nt_Expr},
-            productions=[self.p1, self.p2],
-            start_symbol=self.nt_Expr
-        )
-
-        self.calculator = FirstFollowCalculator(self.grammar)
-
-    def test_first_sets(self):
-        print("\n[Test] FIRST sets")
-        first_expr = self.calculator.get_first(self.nt_Expr)
-        print(f"FIRST(Expr): {first_expr}")
-        self.assertIn(self.t_NUM, first_expr)
-
-    def test_follow_sets(self):
-        print("\n[Test] FOLLOW sets")
-        follow_expr = self.calculator.get_follow(self.nt_Expr)
-        print(f"FOLLOW(Expr): {follow_expr}")
-        self.assertIn(Terminal('$'), follow_expr)
-        self.assertIn(self.t_PLUS, follow_expr)
-
-    def test_no_epsilon_in_terminals(self):
-        print("\n[Test] No ε en terminales")
-        for term in self.grammar.terminals:
-            first_set = self.calculator.get_first(term)
-            self.assertNotIn(Terminal("ε"), first_set)
-            print(f"FIRST({term}): {first_set}")
-
-if __name__ == '__main__':
-    unittest.main()
+def test_epsilon_singleton(simple_grammar):
+    ffc = FirstFollowCalculator(simple_grammar)
+    assert ffc.EPSILON is EPSILON
