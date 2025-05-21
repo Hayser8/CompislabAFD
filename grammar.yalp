@@ -1,0 +1,209 @@
+(* ===== Sección de TOKENS ===== *)
+%token IDENTIFIER STRING INTEGER FLOAT
+%token DEF RETURN IF ELIF ELSE
+%token WHILE FOR IN BREAK CONTINUE
+%token CLASS PASS AND OR NOT
+%token TRUE FALSE NONE LAMBDA
+%token PLUS MINUS TIMES DIV MODULO
+%token EQ NE LT LE GT GE
+%token ASSIGN PLUS_ASSIGN MINUS_ASSIGN TIMES_ASSIGN DIV_ASSIGN
+%token LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET
+%token COMMA COLON DOT SEMICOLON ARROW
+%token NEWLINE INDENT DEDENT
+
+IGNORE WHITESPACE
+IGNORE COMMENT
+IGNORE MULTILINE_COMMENT
+
+%%
+
+(* ===== PRODUCCIONES ===== *)
+
+program:
+    stmt_list
+  ;
+
+stmt_list:
+    /* lista de statements, incluyendo blank lines */
+    /* vacío */
+  | stmt_list stmt
+  | stmt_list NEWLINE
+  ;
+
+stmt:
+    simple_stmt SEMICOLON
+  | simple_stmt NEWLINE
+  | compound_stmt
+  ;
+
+simple_stmt:
+    small_stmt
+  | small_stmt_list
+  ;
+
+small_stmt_list:
+    small_stmt
+  | small_stmt_list COMMA small_stmt
+  ;
+
+small_stmt:
+    expr_stmt
+  | flow_stmt
+  | import_stmt
+  | pass_stmt
+  ;
+
+expr_stmt:
+    testlist ASSIGN testlist
+  | testlist
+  ;
+
+testlist:
+    test
+  | testlist COMMA test
+  ;
+
+exprlist:
+    testlist
+  ;
+
+test:
+    or_test
+  | or_test IF or_test ELSE test
+  ;
+
+or_test:
+    and_test
+  | or_test OR and_test
+  ;
+
+and_test:
+    not_test
+  | and_test AND not_test
+  ;
+
+not_test:
+    NOT not_test
+  | comparison
+  ;
+
+comparison:
+    arith_expr
+  | comparison EQ arith_expr
+  | comparison NE arith_expr
+  | comparison LT arith_expr
+  | comparison LE arith_expr
+  | comparison GT arith_expr
+  | comparison GE arith_expr
+  ;
+
+arith_expr:
+    term
+  | arith_expr PLUS term
+  | arith_expr MINUS term
+  ;
+
+term:
+    factor
+  | term TIMES factor
+  | term DIV factor
+  | term MODULO factor
+  ;
+
+factor:
+    PLUS factor
+  | MINUS factor
+  | power
+  ;
+
+power:
+    atom
+  | power ARROW factor
+  ;
+
+atom:
+    LPAREN testlist RPAREN
+  | LBRACKET testlist RBRACKET
+  | LBRACKET RBRACKET
+  | LBRACE dictorsetmaker RBRACE
+  | NAME
+  | INTEGER
+  | FLOAT
+  | STRING
+  | TRUE
+  | FALSE
+  | NONE
+  ;
+
+dictorsetmaker:
+    test COLON test
+  | dictorsetmaker COMMA test COLON test
+  ;
+
+compound_stmt:
+    if_stmt
+  | while_stmt
+  | for_stmt
+  | funcdef
+  | classdef
+  | suite
+  ;
+
+if_stmt:
+    IF test COLON suite
+  | IF test COLON suite ELIF test COLON suite
+  | IF test COLON suite ELIF test COLON suite ELSE COLON suite
+  | IF test COLON suite ELSE COLON suite
+  ;
+
+while_stmt:
+    WHILE test COLON suite
+  | WHILE test COLON suite ELSE COLON suite
+  ;
+
+for_stmt:
+    FOR exprlist IN testlist COLON suite
+  | FOR exprlist IN testlist COLON suite ELSE COLON suite
+  ;
+
+funcdef:
+    DEF NAME LPAREN parameters RPAREN COLON suite
+  | DEF NAME LPAREN RPAREN COLON suite
+  ;
+
+parameters:
+    NAME
+  | NAME ASSIGN test
+  | parameters COMMA NAME
+  | parameters COMMA NAME ASSIGN test
+  ;
+
+classdef:
+    CLASS NAME COLON suite
+  | CLASS NAME LPAREN testlist RPAREN COLON suite
+  ;
+
+suite:
+    simple_stmt SEMICOLON
+  | simple_stmt NEWLINE
+  | NEWLINE INDENT stmt_list DEDENT
+  ;
+
+flow_stmt:
+    BREAK
+  | CONTINUE
+  | RETURN testlist
+  | RETURN
+  ;
+
+import_stmt:
+    /* vacío */
+  ;
+
+pass_stmt:
+    PASS
+  ;
+
+NAME:
+    IDENTIFIER
+  ;
