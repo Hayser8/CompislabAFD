@@ -1,6 +1,6 @@
 import textwrap
 import pytest
-from parser.yapar_parser import YalpParser
+from parser.yalp_parser import YalpParser
 from parser.yalp_lexer   import tokenize
 from parser.grammar      import Grammar, Terminal, NonTerminal
 
