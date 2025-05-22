@@ -28,18 +28,93 @@ def make_simple_grammar():
 def test_panic_mode_two_errors():
     G = make_simple_grammar()
     parser = Parser(G)
-    # Ahora simulamos realmente un stmt sin ';' al final:
-    #   "x y; y;"
+    # Simulamos un stmt sin ';' al final: "x y; y;"
     toks = [
         ("x", "ID"),    # falta ';' tras x
-        ("y", "ID"), 
+        ("y", "ID"),
         (";", "SEMICOLON"),
         ("y", "ID"),
         (";", "SEMICOLON"),
     ]
     ast, errors = parser.parse(toks)
-    # Debe haber al menos un error de parseo
     assert len(errors) >= 1
     assert "Unexpected token" in errors[0]
-    # Y aún así haber construido un AST no-nulo gracias al segundo stmt
     assert ast is not None
+
+def run_and_check(toks, expect_errors=True, expect_ast=True):
+    """Función auxiliar para correr el parser y verificar errores y AST"""
+    G = make_simple_grammar()
+    parser = Parser(G)
+    ast, errors = parser.parse(toks)
+    print("Errores:", errors)
+    print("AST:", ast)
+    if expect_errors:
+        assert len(errors) > 0
+    else:
+        assert len(errors) == 0
+    if expect_ast:
+        assert ast is not None
+    else:
+        assert ast is None
+
+# -----------------------
+# Tests individuales
+# -----------------------
+
+def test_valid_input():
+    """Caso completamente válido, sin errores"""
+    run_and_check([
+        ("x", "ID"),
+        (";", "SEMICOLON"),
+        ("y", "ID"),
+        (";", "SEMICOLON"),
+    ], expect_errors=False)
+
+def test_error_at_start():
+    """Error al inicio, primer token inválido"""
+    run_and_check([
+        (";", "SEMICOLON"),
+        ("x", "ID"),
+        (";", "SEMICOLON"),
+    ])
+
+def test_error_at_end_without_sync():
+    """Error al final, sin punto y coma ni token sincronizador"""
+    run_and_check([
+        ("x", "ID"),
+        ("y", "ID"),
+    ], expect_ast=False)
+
+def test_sync_at_dollar():
+    """Se sincroniza con '$' (fin de archivo)"""
+    run_and_check([
+        ("x", "ID"),
+        ("y", "ID"),
+        ("$", "$"),
+    ], expect_ast=False)
+
+def test_sync_with_rbrace():
+    """Se sincroniza con '}' (RBRACE)"""
+    run_and_check([
+        ("x", "ID"),
+        ("}", "RBRACE"),
+        ("y", "ID"),
+        (";", "SEMICOLON"),
+    ])
+
+def test_sync_with_rparen():
+    """Se sincroniza con ')' (RPAREN)"""
+    run_and_check([
+        ("x", "ID"),
+        (")", "RPAREN"),
+        ("y", "ID"),
+        (";", "SEMICOLON"),
+    ])
+
+def test_completely_invalid():
+    """Entrada completamente inválida, sin tokens reconocibles"""
+    run_and_check([
+        ("?", "UNKNOWN"),
+        ("@", "UNKNOWN"),
+        ("$", "$"),
+    ], expect_ast=False)
