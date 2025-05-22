@@ -1,5 +1,3 @@
-# tests/test_canonical.py
-
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -9,6 +7,7 @@ from parser.lr0 import Item, State, closure, goto, build_canonical
 
 @pytest.fixture
 def small_grammar():
+    # Gramática:
     # S → A
     # A → a
     S = NonTerminal("S")
@@ -23,6 +22,7 @@ def small_grammar():
         start_symbol=S
     )
 
+# Verifica Item: next_symbol(), advance_dot() y error en avance fuera de rango
 def test_item_and_advance_dot():
     S = NonTerminal("S")
     a = Terminal("a")
@@ -34,13 +34,15 @@ def test_item_and_advance_dot():
     with pytest.raises(ValueError):
         Item(prod, 2).advance_dot()
 
+# Verifica que closure añade items cuando encuentra NoTerminal tras el punto
 def test_closure_adds_items(small_grammar):
     G = small_grammar
     p1, p2 = G.productions
     clos = closure(G, {Item(p1, 0)})  # S → ·A
     assert Item(p1, 0) in clos
-    assert Item(p2, 0) in clos  # añade A → ·a
+    assert Item(p2, 0) in clos  # se espera A → ·a
 
+# Verifica que goto avanza el punto y realiza closure del resultado
 def test_goto_shifts_and_closes(small_grammar):
     G = small_grammar
     p1, _ = G.productions
@@ -48,20 +50,21 @@ def test_goto_shifts_and_closes(small_grammar):
     st = goto(G, ini, NonTerminal("A"))
     assert st == {Item(p1, 1)}
 
+# Verifica la cantidad de estados generados por build_canonical
 def test_build_canonical_counts_states(small_grammar):
     G = small_grammar
     states = build_canonical(G)
-    # Con S'→S, S→A, A→a tendremos 4 estados:
-    #   0: ·S', ·S, ·A, ·a
-    #   1: S'·
-    #   2: A··  
-    #   3: a··
+    # Se espera 4 estados:
+    # 0: ·S', ·S, ·A, ·a
+    # 1: S'·
+    # 2: A·
+    # 3: a·
     assert len(states) == 4
 
+# Verifica que el repr del primer estado contenga todos los items iniciales
 def test_state_repr_contains_all_dots(small_grammar):
     states = build_canonical(small_grammar)
     rep0 = repr(states[0])
-    # Debe listar cierres para S'→· S, S→· A y A→· a
     assert "· S" in rep0
     assert "· A" in rep0
     assert "· a" in rep0
