@@ -65,3 +65,19 @@ def test_tokenize_with_comments_ignored():
 def test_tokenize_error_on_bad_character():
     with pytest.raises(SyntaxError):
         list(tokenize("S $ ;"))
+        
+def test_remove_comments_ocaml_nested():
+    text = "a (* level1 (* level2 *) back *) z"
+    cleaned = remove_comments(text)
+    line = cleaned[0]
+    assert line.startswith("a ")
+    assert line.endswith(" z")
+    assert set(line[2:-2]) == {" "} 
+
+
+def test_tokenize_with_ignore_and_token_same_line():
+    text = "%token ID IGNORE WS"
+    toks = list(tokenize(text))
+    types = [t.type for t in toks]
+    assert types == ["PERCENT_TOKEN", "IDENTIFIER", "IDENTIFIER", "IDENTIFIER"]
+
