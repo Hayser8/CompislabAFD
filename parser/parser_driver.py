@@ -1,10 +1,8 @@
-# parser/parser_driver.py
-
 from typing import List, Tuple, Optional
 from parser.grammar import Grammar, Terminal, NonTerminal, Production, Symbol
 from parser.parser_table import build_slr_table
 from parser.error_recovery import panic_recover
-from parser.ast import ASTNode  # tu ASTNode genérico
+from parser.ast import ASTNode  
 
 class ParseError(Exception):
     """Error sintáctico indicando el estado y el token que falló."""

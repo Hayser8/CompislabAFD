@@ -1,5 +1,3 @@
-# yapar_generator.py
-
 import os
 from typing import Set, List
 from parser.yalp_lexer import tokenize

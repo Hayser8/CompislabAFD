@@ -10,6 +10,7 @@
 %token LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET
 %token COMMA COLON DOT SEMICOLON ARROW
 %token NEWLINE INDENT DEDENT
+%token FROM IMPORT AS
 
 IGNORE WHITESPACE
 IGNORE COMMENT
@@ -20,30 +21,33 @@ IGNORE MULTILINE_COMMENT
 (* ===== PRODUCCIONES ===== *)
 
 program:
-    stmt_list
+    stmt_list DEDENT DEDENT
+  | stmt_list DEDENT
+  | stmt_list
   ;
 
 stmt_list:
-    /* lista de statements, incluyendo blank lines */
-    /* vacío */
-  | stmt_list stmt
+    stmt_list stmt
   | stmt_list NEWLINE
+  | stmt                
   ;
 
+
 stmt:
-    simple_stmt SEMICOLON
+    small_stmt SEMICOLON
   | simple_stmt NEWLINE
+  | small_stmt COMMA small_stmt_list SEMICOLON
+  | small_stmt COMMA small_stmt_list NEWLINE
   | compound_stmt
   ;
 
 simple_stmt:
     small_stmt
-  | small_stmt_list
   ;
 
 small_stmt_list:
     small_stmt
-  | small_stmt_list COMMA small_stmt
+  | small_stmt COMMA small_stmt_list
   ;
 
 small_stmt:
@@ -54,8 +58,14 @@ small_stmt:
   ;
 
 expr_stmt:
-    testlist ASSIGN testlist
-  | testlist
+    test ASSIGN test
+  | test
+  ;
+
+
+assign_list:
+    test
+  | assign_list COMMA test
   ;
 
 testlist:
@@ -118,7 +128,6 @@ factor:
 
 power:
     atom
-  | power ARROW factor
   ;
 
 atom:
@@ -126,7 +135,7 @@ atom:
   | LBRACKET testlist RBRACKET
   | LBRACKET RBRACKET
   | LBRACE dictorsetmaker RBRACE
-  | NAME
+  | IDENTIFIER
   | INTEGER
   | FLOAT
   | STRING
@@ -167,43 +176,47 @@ for_stmt:
   ;
 
 funcdef:
-    DEF NAME LPAREN parameters RPAREN COLON suite
-  | DEF NAME LPAREN RPAREN COLON suite
+    DEF IDENTIFIER LPAREN parameters RPAREN COLON suite
+  | DEF IDENTIFIER LPAREN parameters RPAREN ARROW test COLON suite
+  | DEF IDENTIFIER LPAREN RPAREN COLON suite
+  | DEF IDENTIFIER LPAREN RPAREN ARROW test COLON suite
   ;
 
 parameters:
-    NAME
-  | NAME ASSIGN test
-  | parameters COMMA NAME
-  | parameters COMMA NAME ASSIGN test
+    IDENTIFIER
+  | IDENTIFIER ASSIGN test
+  | parameters COMMA IDENTIFIER
+  | parameters COMMA IDENTIFIER ASSIGN test
   ;
 
 classdef:
-    CLASS NAME COLON suite
-  | CLASS NAME LPAREN testlist RPAREN COLON suite
+    CLASS IDENTIFIER COLON suite
+  | CLASS IDENTIFIER LPAREN testlist RPAREN COLON suite
   ;
 
 suite:
-    simple_stmt SEMICOLON
-  | simple_stmt NEWLINE
+    simple_stmt NEWLINE
   | NEWLINE INDENT stmt_list DEDENT
   ;
 
+
 flow_stmt:
-    BREAK
-  | CONTINUE
-  | RETURN testlist
+    RETURN test
   | RETURN
+  | BREAK
+  | CONTINUE
   ;
 
 import_stmt:
-    /* vacío */
+    IMPORT IDENTIFIER
+  | FROM IDENTIFIER IMPORT IDENTIFIER
+  | FROM IDENTIFIER IMPORT IDENTIFIER AS IDENTIFIER
   ;
 
 pass_stmt:
     PASS
   ;
 
-NAME:
+IDENTIFIER:
     IDENTIFIER
   ;

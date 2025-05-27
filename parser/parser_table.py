@@ -1,5 +1,3 @@
-# parser_table.py
-
 from typing import Dict, Tuple
 from parser.grammar import Grammar, Terminal, NonTerminal
 from parser.first_follow import FirstFollowCalculator

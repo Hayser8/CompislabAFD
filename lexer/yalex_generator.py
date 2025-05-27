@@ -117,7 +117,7 @@ _token_map = {
     # simples
     "+":"PLUS", "-":"MINUS", "*":"TIMES", "/":"DIV", "%":"MODULO",
     "=":"ASSIGN", "<":"LT", ">":"GT", ":":"COLON", ".":"DOT",
-    ",":"COMMA", ";":"SEMICOLON", "@":"AT",
+    ",":"COMMA", ";":"SEMICOLON", 
     "(":"LPAREN", ")":"RPAREN", "[":"LBRACKET", "]":"RBRACKET",
     "{":"LBRACE", "}":"RBRACE",
     # compuestos (elipsis primero)
@@ -149,6 +149,12 @@ _cur_line, _cur_col = 1, 1
 
 def get_token(text: str):
     global _cur_line, _cur_col
+
+    # 0) NEWLINE puro  ── ¡antes que nada!
+    if text.startswith("\r\n"):
+        return "\r\n", "NEWLINE", 2          # solo CRLF
+    if text[0] == "\n":
+        return "\n", "NEWLINE", 1            # solo LF
 
     # Comentario de línea con '#'
     if text.startswith("#"):
@@ -188,6 +194,12 @@ def get_token(text: str):
     if m:
         lit = m.group(0)
         return lit, "INTEGER", len(lit)
+    
+    if text.startswith(".") and len(text) > 1 and text[1].isdigit():
+        j = 2
+        while j < len(text) and text[j].isdigit():
+            j += 1
+        return text[:j], "FLOAT", j
 
     # 3) DFA unificado
     best_lx, best_ac, best_ln = None, None, 0
@@ -196,7 +208,7 @@ def get_token(text: str):
         if ln > best_ln:
             best_ln, best_lx = ln, lx
             best_ac = dfa["state_actions"].get(str(st)) or dfa["action"]
-
+    
     # 4) Dos caracteres
     two = text[:2]
     if two in _token_map and best_ln < 2:
@@ -223,63 +235,77 @@ def get_token(text: str):
                     j += 1
                 if j > i+1:
                     return text[:j], "FLOAT", j
+            if i < len(text) and text[i] in "eE":
+                j = i + 1
+                if j < len(text) and text[j] in "+-":   # signo opcional
+                    j += 1
+                k = j
+                while k < len(text) and text[k].isdigit():
+                    k += 1
+                if k > j:                               # al menos un dígito
+                    return text[:k], "FLOAT", k
             return text[:i], "INTEGER", i
 
     # 6) Categorización final
     if best_ac in (None, "unified", "ACCEPT") and best_lx is not None:
         best_ac = _categorize(best_lx)
 
+    if best_ln == 0:
+       raise LexerError("Símbolo desconocido", _cur_line, _cur_col)
+
     return best_lx, best_ac, best_ln
 
 def scan(text: str):
-    global _cur_line, _cur_col
-    # No strip_comments aquí; '#' lo maneja DFA
-    lines = text.splitlines(keepends=True)
+    pos = 0
+    n = len(text)
     indent_stack = [0]
     out = []
+    new_line = True
+    cur_line, cur_col = 1, 1
 
-    for raw in lines:
-        # 1) contar espacios iniciales
-        sp = 0
-        while sp < len(raw) and raw[sp] == " ":
-            sp += 1
-        rest = raw[sp:]
-
-        # 2) generar INDENT/DEDENT
-        if rest.strip() != "":
-            if sp > indent_stack[-1]:
-                indent_stack.append(sp)
+    while pos < n:
+        if new_line:
+            # 1) detectar indent/dedent
+            start = pos
+            while pos < n and text[pos] == ' ':
+                pos += 1
+            indent = pos - start
+            if indent > indent_stack[-1] and indent % 4 == 0:
+                indent_stack.append(indent)
                 out.append(("", "INDENT"))
-            elif sp < indent_stack[-1]:
-                while indent_stack and indent_stack[-1] > sp:
-                    indent_stack.pop()
-                    out.append(("", "DEDENT"))
-                if indent_stack[-1] != sp:
-                    raise LexerError("Error de indentación", _cur_line, sp+1)
+            while indent < indent_stack[-1]:
+                indent_stack.pop()
+                out.append(("", "DEDENT"))
+            new_line = False
 
-        # 3) tokenizar la línea
-        i = 0
-        while i < len(rest):
-            lx, ac, ln = get_token(rest[i:])
-            if ln == 0:
-                raise LexerError("Símbolo desconocido", _cur_line, sp + i + 1)
-            frag = rest[i:i+ln]
-            nl = frag.count("\n")
-            if nl:
-                _cur_line += nl
-                _cur_col = 1 + len(frag) - frag.rfind("\n")
-            else:
-                _cur_col += ln
+        # 2) extraer siguiente token
+        lexeme, tok, length = get_token(text[pos:])
+        if length == 0:
+            raise LexerError("Símbolo desconocido", cur_line, cur_col)
 
-            if ac not in {"WHITESPACE","COMMENT","MULTILINE_COMMENT"}:
-                out.append((lx, ac))
-            i += ln
+        # 3) actualizar línea/columna
+        lines = lexeme.split('\n')
+        if len(lines) > 1:
+            cur_line += len(lines) - 1
+            cur_col = len(lines[-1]) + 1
+            new_line = (tok == "NEWLINE")
+        else:
+            cur_col += length
 
-    # 4) al final, emitir DEDENT hasta el nivel 0
+        pos += length
+
+        # 4) filtrar comentarios y whitespace
+        if tok not in {"COMMENT", "MULTILINE_COMMENT", "WHITESPACE"}:
+            out.append((lexeme, tok))
+
+    # 5) al final, cerrar todos los niveles de indent
+    # 5) al final, cerrar todos los niveles de indent
     while len(indent_stack) > 1:
         indent_stack.pop()
         out.append(("", "DEDENT"))
 
+    # 6) siempre se emite el DEDENT raíz que exige la suite
+    out.append(("", "DEDENT"))
     return out
 '''
 

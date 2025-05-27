@@ -45,6 +45,9 @@ let floatnum    = (digit|underscore)+ '.' (digit|underscore)* exponent?
 let letter      = ['a'-'z''A'-'Z''_']
 let identifier  = letter (letter|digit|underscore)*
 
+| ([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? '"'  ( [^"\\\n] | '\\' . )* '"'   { return "STRING" }
+| ([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? "'"  ( [^'\\\n] | '\\' . )* "'"   { return "STRING" }
+
 let whitespace  = [' ' '\t']
 let newline     = '\r'? '\n'
 
@@ -76,20 +79,14 @@ rule gettoken =
 
 | "#" [^\n]*           { return "COMMENT" }
 
-| integer floatnum?    { return "NUMBER" }
-
-| floatnum             { return "NUMBER" }
+| floatnum             { return "FLOAT"; }
+| integer              { return "INTEGER"; }
 
 | identifier           {
       if lxm in keywords: return keywords[lxm]
       return "IDENTIFIER"
   }
 
-# Literales de cadena con prefijos (r, u, f, b, rb, fr…)
-| ([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? '"""' ( [^"] | '""' [^"] )* '"""' { return "STRING" }
-| ([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? "'''" ( [^'] | "''" [^'] )* "'''" { return "STRING" }
-| ([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? '"'  ( [^"\\\n] | '\\' . )* '"'   { return "STRING" }
-| ([rRuUfFbB] | [rRuUfFbB][rRuUfFbB])? "'"  ( [^'\\\n] | '\\' . )* "'"   { return "STRING" }
 
 # Operadores y delimitadores compuestos
 | "=="  { return "EQ" }
@@ -114,8 +111,7 @@ rule gettoken =
 | "-"   { return "MINUS" }
 | "*"   { return "TIMES" }
 | "/"   { return "DIV" }
-| "%"   { return "MOD" }
-| "@"   { return "AT" }
+| "%"   { return "MODULO" }
 | ","   { return "COMMA" }
 | ":"   { return "COLON" }
 | ";"   { return "SEMICOLON" }

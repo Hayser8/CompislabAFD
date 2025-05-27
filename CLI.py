@@ -51,6 +51,7 @@ def main():
     # 3) Leer fuente y hacer léxico
     try:
         src = open(args.source_file, encoding="utf-8").read()
+        src = src.replace("\r\n", "\n").replace("\r", "\n")
     except FileNotFoundError:
         print(f"[CLI ERROR] Fuente no encontrada: '{args.source_file}'")
         sys.exit(1)

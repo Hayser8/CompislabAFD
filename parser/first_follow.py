@@ -1,5 +1,3 @@
-# first_follow.py
-
 from typing import Dict, Set, Union, List
 from parser.grammar import Grammar, Terminal, NonTerminal, Symbol, EPSILON
 

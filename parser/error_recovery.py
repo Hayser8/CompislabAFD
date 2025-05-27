@@ -1,5 +1,3 @@
-# parser/error_recovery.py
-
 from typing import List
 from parser.grammar import Terminal
 

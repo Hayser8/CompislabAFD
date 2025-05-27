@@ -1,5 +1,3 @@
-# grammar.py
-
 from dataclasses import dataclass
 from typing import Set, Tuple, List, Union
 

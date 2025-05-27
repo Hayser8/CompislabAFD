@@ -1,0 +1,5 @@
+# source_error2.src
+
+value = 42
+msg = "This string is not closed
+next = value + 1

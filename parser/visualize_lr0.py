@@ -1,5 +1,3 @@
-# parser/visualize_lr0.py
-
 import graphviz
 from typing import List
 from parser.lr0 import State, build_canonical, goto, Item
